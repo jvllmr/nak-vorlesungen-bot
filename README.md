@@ -1,3 +1,5 @@
 # nak-vorlesungen-bot
 
-Create NAK_BOT_TOKEN environment variable and assign your Token to it for use.
+pip install -r requirements.txt
+
+Add token.key file and insert your Discord token.
