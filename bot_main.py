@@ -153,11 +153,8 @@ class botclient(discord.Client):
             await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul mit der ID " +module_id+ " gesetzt")
             print(str(message.author)+" hat den Link vom Modul "+ module_id+ " auf " + link+ " gesetzt")
             
-        elif message.content == self.prefix+"help":
-            embedded = discord.Embed()
-            embedded.add_field(name="Test",value="[Beitreten](https://youtube.com/)")
-            embedded.add_field(name="Test",value="[Beitreten](https://youtube.com/)",inline=False)
-            await message.channel.send("",embed=embedded)
+        elif message.content == self.prefix+"help" or re.search("^[*]$",message.content):
+            await message.channel.send("https://github.com/kreyoo/nak-vorlesungen-bot")
         
     async def on_reaction_add(self,reaction, user):
         if user == self.user:
