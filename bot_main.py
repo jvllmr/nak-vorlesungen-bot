@@ -154,7 +154,8 @@ class botclient(discord.Client):
             print(str(message.author)+" hat den Link vom Modul "+ module_id+ " auf " + link+ " gesetzt")
             
         elif message.content == self.prefix+"help" or re.search("^[*]$",message.content):
-            await message.channel.send("https://github.com/kreyoo/nak-vorlesungen-bot")
+            await message.channel.send("*upload mit iCalendar-Datei im Anhang - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n*link [Modul-ID] [Link] - Setzt z.B. einen Zoom-Link für eine bestimmte Modul-ID")
+            await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
         
     async def on_reaction_add(self,reaction, user):
         if user == self.user:
