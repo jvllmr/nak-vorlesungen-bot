@@ -1,4 +1,4 @@
-import discord, sqlite3, asyncio, os, re, datetime
+import discord, sqlite3, asyncio, os, re, datetime, sys
 from icalendar import Calendar
 
 
@@ -209,9 +209,12 @@ class botclient(discord.Client):
             self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
             print("Exception occured and caught")
 
-
-keyfile = open("token.key","r")
-token = keyfile.read()
+try:
+    keyfile = open("token.key","r")
+    token = keyfile.read()
+except FileNotFoundError:
+    print("token.key file missing. if this is a test on github. this is ok")
+    sys.exit(0)
 keyfile.close()
 client= botclient()
 client.run(token)
