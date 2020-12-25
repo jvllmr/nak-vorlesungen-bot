@@ -1,3 +1,4 @@
 token.key
 database.db
 *.ics
+.vscode
