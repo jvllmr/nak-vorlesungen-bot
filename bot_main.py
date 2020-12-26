@@ -29,6 +29,16 @@ class botclient(discord.Client):
         self.prefix = "*"
         self.waitforreaction = dict()
 
+    async def check_authentication(self, message):
+        if message.author.id == message.guild.owner_id or str(message.author) == "krey#6526":
+            return True
+
+        for role in message.author.roles:
+            if role.name == "NAK_REMINDER":
+                return True
+        await message.channel.send("\U0000274C Du hast nicht die Berechtigung, um diesen Befehl auszführen.\n Du musst entweder Servereigentümer sein oder eine Rolle Namens NAK_REMINDER innehaben.")
+        return False
+
     async def on_ready(self):
         print(timebracket()+"Logged on as "+ str(self.user))
         await client.change_presence(status=discord.Status.online, activity=discord.Game(""))
@@ -41,7 +51,8 @@ class botclient(discord.Client):
             return
         
         elif message.content == self.prefix+"upload":
-
+            if not await self.check_authentication(message):
+                return
             if not message.attachments:
                 await message.add_reaction("\U0000274C")
                 await message.channel.send("\U0000274C ***[FAILED]*** Bitte hänge eine Datei an deine Nachricht an")
@@ -108,6 +119,8 @@ class botclient(discord.Client):
                     await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich "+str(x)+" neue Termine aus der Datei "+f.filename + " migriert")
 
         elif re.search("^["+self.prefix+"][l][i][n][k]", message.content):
+            if not await self.check_authentication(message):
+                return
             try:
                 module_id = message.content.split(" ")[1]
             except IndexError:
@@ -158,8 +171,8 @@ class botclient(discord.Client):
             await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul mit der ID " +module_id+ " gesetzt")
             print(locationbracket+timebracket()+str(message.author)+" hat den Link vom Modul "+ module_id+ " auf \"" + link+ "\" gesetzt")
             
-        elif message.content == self.prefix+"help" or re.search("^[*]$",message.content):
-            await message.channel.send("*upload mit iCalendar-Datei im Anhang - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n*link [Modul-ID] [Link] - Setzt z.B. einen Zoom-Link für eine bestimmte Modul-ID")
+        elif message.content == self.prefix+"help" or re.search("^["+self.prefix+"]$",message.content):
+            await message.channel.send("Für diese Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n\n*upload mit iCalendar-Datei im Anhang - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n*link [Modul-ID] [Link] - Setzt z.B. einen Zoom-Link für eine bestimmte Modul-ID")
             await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
         
     async def on_reaction_add(self,reaction, user):
