@@ -2,3 +2,4 @@ token.key
 database.db
 *.ics
 .vscode
+*.code-workspace

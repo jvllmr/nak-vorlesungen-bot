@@ -15,6 +15,8 @@ symbols = (
             "\U00000039\U0000FE0F\U000020E3  ",
             )
 
+def timebracket():
+    return "["+ datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S")+"] "
 
 class botclient(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -26,12 +28,15 @@ class botclient(discord.Client):
         self.sqlbackend = sqlite3.connect("database.db")
         self.prefix = "*"
         self.waitforreaction = dict()
+
     async def on_ready(self):
-        print("Logged on as "+ str(self.user))
+        print(timebracket()+"Logged on as "+ str(self.user))
         await client.change_presence(status=discord.Status.online, activity=discord.Game(""))
     
     async def on_message(self, message):
-
+        guild = message.guild
+        channel = message.channel
+        locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
         if message.author == self.user:
             return
         
@@ -89,9 +94,9 @@ class botclient(discord.Client):
                             time = int(datetime[1].split(":")[0] + datetime[1].split(":")[1])
                             data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL")
                             if self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(message.guild.id,message.channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
-                                print("Meeting "+component.get("summary")+" existiert bereits")
+                                print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
                             else:
-                                print("Meeting "+component.get("summary")+" erstellt")
+                                print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
                                 self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?)", data)
                                 self.sql.commit()
                                 x = x+1
@@ -151,13 +156,16 @@ class botclient(discord.Client):
 
             await message.add_reaction("\U00002705")
             await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul mit der ID " +module_id+ " gesetzt")
-            print(str(message.author)+" hat den Link vom Modul "+ module_id+ " auf " + link+ " gesetzt")
+            print(locationbracket+timebracket()+str(message.author)+" hat den Link vom Modul "+ module_id+ " auf \"" + link+ "\" gesetzt")
             
         elif message.content == self.prefix+"help" or re.search("^[*]$",message.content):
             await message.channel.send("*upload mit iCalendar-Datei im Anhang - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n*link [Modul-ID] [Link] - Setzt z.B. einen Zoom-Link für eine bestimmte Modul-ID")
             await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
         
     async def on_reaction_add(self,reaction, user):
+        guild = reaction.message.guild
+        channel = reaction.message.channel
+        locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
         if user == self.user:
             return
         try:
@@ -175,7 +183,7 @@ class botclient(discord.Client):
                         await message.add_reaction("\U00002705")
                         await reaction.remove(user)
                         await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul "+module_id+" mit dem Dozenten "+ dozent +  " gesetzt")
-                        print(str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf " + link+ " gesetzt")
+                        print(locationbracket+timebracket()+str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf \"" + link+ "\" gesetzt")
                         break
                     x=x+1
                 
@@ -187,27 +195,31 @@ class botclient(discord.Client):
         await self.wait_until_ready()
         try:
             while not self.is_closed():
-                print("Checking for meetings...")
+                print(timebracket()+"Starte Meeting-Check...")
                 currenttime = str(datetime.datetime.now()+ datetime.timedelta(minutes = 10))
                 time = int(currenttime.split(" ")[1].split(":")[0] + currenttime.split(" ")[1].split(":")[1])
                 year = int(currenttime.split(" ")[0].split("-")[0])
                 month = int(currenttime.split(" ")[0].split("-")[1])
                 day = int(currenttime.split(" ")[0].split("-")[2])
+                
                 if meetings:= self.sql.execute("select * from meetings where year=? and month=? and day=? and time=?",(year,month,day,time)).fetchall():
+                    print(timebracket()+"Meetings mit passender Zeit gefunden!")
                     for meeting in meetings:
                         guild = self.get_guild(meeting[0])
                         channel = self.get_channel(meeting[1])
-                        print("Sende Info zur Vorlesung "+meeting[2])
+                        locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/" +str(channel.id) +"]"
+                        print(locationbracket+timebracket()+"Sende Info zur Vorlesung "+meeting[2])
                         if meeting[9] != "NULL":
                             button = discord.Embed()
-                            button.add_field(name="",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
-                            await channel.send("\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Klicke auf den Button um beizutreten:",embed=button)
+                            button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
+                            await channel.send(content="\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
                         else:
-                            await channel.send("\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich")
-                await asyncio.sleep(20)
-        except Exception:
+                            await channel.send("\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Leider ist noch kein Link zum Meeting hinterlegt.")
+                print(timebracket()+"Meeting-Check fertig!")
+                await asyncio.sleep(60)
+        except Exception as err:
             self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
-            print("Exception occured and caught")
+            print(timebracket()+"Exception in meeting check occured and caught: \n"+str(err))
 
 try:
     keyfile = open("token.key","r")
