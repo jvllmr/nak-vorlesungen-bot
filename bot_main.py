@@ -197,6 +197,7 @@ class botclient(discord.Client):
                         await reaction.remove(user)
                         await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul "+module_id+" mit dem Dozenten "+ dozent +  " gesetzt")
                         print(locationbracket+timebracket()+str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf \"" + link+ "\" gesetzt")
+                        del self.waitforreaction[reaction.message.id]
                         break
                     x=x+1
                 
