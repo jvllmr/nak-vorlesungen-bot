@@ -205,7 +205,10 @@ class botclient(discord.Client):
                                 self.sql.execute("update meetings set link=? where id=? and dozent=?",(link,module_id,dozent))
                                 self.sql.commit()
                                 await message.add_reaction("\U00002705")
-                                await reaction.remove(user)
+                                try:
+                                    await reaction.remove(user)
+                                except discord.errors.Forbidden:
+                                    pass
                                 await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul "+module_id+" mit dem Dozenten "+ dozent +  " gesetzt")
                                 print(locationbracket+timebracket()+str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf \"" + link+ "\" gesetzt")
                                 del self.waitforreaction[reaction.message.id]
