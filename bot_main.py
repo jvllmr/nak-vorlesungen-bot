@@ -25,7 +25,6 @@ class botclient(discord.Client):
         # create the background task and run it in the background
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
         self.sql = sqlite3.connect("database.db")
-        self.sqlbackend = sqlite3.connect("database.db")
         self.prefix = "*"
         self.waitforreaction = dict()
 
@@ -36,6 +35,7 @@ class botclient(discord.Client):
         for role in message.author.roles:
             if role.name == "NAK_REMINDER":
                 return True
+        await message.add_reaction("\U0000274C")
         await message.channel.send("\U0000274C Du hast nicht die Berechtigung, um diesen Befehl auszführen.\n Du musst entweder Servereigentümer sein oder eine Rolle Namens NAK_REMINDER innehaben.")
         return False
 
