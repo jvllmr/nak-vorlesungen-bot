@@ -175,33 +175,52 @@ class botclient(discord.Client):
             await message.channel.send("Für diese Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n\n*upload mit iCalendar-Datei im Anhang - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n*link [Modul-ID] [Link] - Setzt z.B. einen Zoom-Link für eine bestimmte Modul-ID")
             await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
         
+        elif re.search("^["+self.prefix+"][r][e][s][e][t]", message.content):
+            if await check_authentication(message):
+                currentmessage = await message.channel.send("Bist du dir sicher, dass du alle Termine in diesem Kanal entfernen möchtest? Reagiere mit dem Häkchen-Emoji \U00002705, wenn ja. ")
+                self.waitforreaction[currentmessage.id]=dict()
+                self.waitforreaction[currentmessage.id]["usermessage"] = message
+                self.waitforreaction[currentmessage.id]["ownmessage"] = currentmessage
+
     async def on_reaction_add(self,reaction, user):
         guild = reaction.message.guild
         channel = reaction.message.channel
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
-        if user == self.user:
+        if user == self.user or user != message.author:
             return
         try:
             if self.waitforreaction[reaction.message.id]:
-                x=0
-                for symbol in symbols:
-                    if reaction.emoji==symbol.rstrip(" "):
-                        dozent = self.waitforreaction[reaction.message.id]["choiceoptions"][x]
+                try:
+                    if self.waitforreaction[currentmessage.id]["link"]:
+                        x=0
+                        for symbol in symbols:
+                            if reaction.emoji==symbol.rstrip(" "):
+                                dozent = self.waitforreaction[reaction.message.id]["choiceoptions"][x]
+                                message = self.waitforreaction[reaction.message.id]["usermessage"]
+                                currentmessage = self.waitforreaction[reaction.message.id]["ownmessage"]
+                                module_id = self.waitforreaction[reaction.message.id]["module_id"]
+                                link = self.waitforreaction[reaction.message.id]["link"]
+                                self.sql.execute("update meetings set link=? where id=? and dozent=?",(link,module_id,dozent))
+                                self.sql.commit()
+                                await message.add_reaction("\U00002705")
+                                await reaction.remove(user)
+                                await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul "+module_id+" mit dem Dozenten "+ dozent +  " gesetzt")
+                                print(locationbracket+timebracket()+str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf \"" + link+ "\" gesetzt")
+                                del self.waitforreaction[reaction.message.id]
+                                break
+                            x=x+1
+
+                except KeyError:
+                    if reaction.emoji=="\U00002705":
                         message = self.waitforreaction[reaction.message.id]["usermessage"]
                         currentmessage = self.waitforreaction[reaction.message.id]["ownmessage"]
-                        module_id = self.waitforreaction[reaction.message.id]["module_id"]
-                        link = self.waitforreaction[reaction.message.id]["link"]
-                        self.sql.execute("update meetings set link=? where id=? and dozent=?",(link,module_id,dozent))
+                        self.sql.execute("delete * from meetings where server=? and channel=?",(message.guild.id,message.channel.id))
                         self.sql.commit()
                         await message.add_reaction("\U00002705")
-                        await reaction.remove(user)
-                        await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul "+module_id+" mit dem Dozenten "+ dozent +  " gesetzt")
-                        print(locationbracket+timebracket()+str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf \"" + link+ "\" gesetzt")
+                        await currentmessage.edit(content="\U00002705 ***[DONE]*** Alle Termine in diesem Kanal gelöscht")
+                        print(locationbracket+timebracket()+str(message.author)+" hat alle Termine entfernt")
                         del self.waitforreaction[reaction.message.id]
-                        break
-                    x=x+1
-                
-               
+
         except KeyError:
             pass
 
