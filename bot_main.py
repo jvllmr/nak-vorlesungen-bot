@@ -176,7 +176,7 @@ class botclient(discord.Client):
             await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
         
         elif re.search("^["+self.prefix+"][r][e][s][e][t]", message.content):
-            if await check_authentication(message):
+            if await self.check_authentication(message):
                 currentmessage = await message.channel.send("Bist du dir sicher, dass du alle Termine in diesem Kanal entfernen möchtest? Reagiere mit dem Häkchen-Emoji \U00002705, wenn ja. ")
                 self.waitforreaction[currentmessage.id]=dict()
                 self.waitforreaction[currentmessage.id]["usermessage"] = message
@@ -186,12 +186,12 @@ class botclient(discord.Client):
         guild = reaction.message.guild
         channel = reaction.message.channel
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
-        if user == self.user or user != message.author:
+        if user == self.user or user != reaction.message.author:
             return
         try:
             if self.waitforreaction[reaction.message.id]:
                 try:
-                    if self.waitforreaction[currentmessage.id]["link"]:
+                    if self.waitforreaction[reaction.message.id]["link"]:
                         x=0
                         for symbol in symbols:
                             if reaction.emoji==symbol.rstrip(" "):
