@@ -186,10 +186,12 @@ class botclient(discord.Client):
         guild = reaction.message.guild
         channel = reaction.message.channel
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
-        if user == self.user or user != reaction.message.author:
+        if user == self.user:
             return
         try:
             if self.waitforreaction[reaction.message.id]:
+                if self.waitforreaction[reaction.message.id]["usermessage"].author != user:
+                    return
                 try:
                     if self.waitforreaction[reaction.message.id]["link"]:
                         x=0
