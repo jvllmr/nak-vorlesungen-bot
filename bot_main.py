@@ -218,6 +218,7 @@ class botclient(discord.Client):
                         currentmessage = self.waitforreaction[reaction.message.id]["ownmessage"]
                         self.sql.execute("delete from meetings where server=? and channel=?",(message.guild.id,message.channel.id))
                         self.sql.commit()
+                        await reaction.remove(user)
                         await message.add_reaction("\U00002705")
                         await currentmessage.edit(content="\U00002705 ***[DONE]*** Alle Termine in diesem Kanal gelöscht")
                         print(locationbracket+timebracket()+str(message.author)+" hat alle Termine entfernt")
