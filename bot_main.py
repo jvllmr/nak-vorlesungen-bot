@@ -103,12 +103,12 @@ class botclient(discord.Client):
                             month = int(datetime[0].split("-")[1])
                             day = int(datetime[0].split("-")[2])
                             time = int(datetime[1].split(":")[0] + datetime[1].split(":")[1])
-                            data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL")
+                            data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL")
                             if self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(message.guild.id,message.channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
                                 print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
                             else:
                                 print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
-                                self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?)", data)
+                                self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?)", data)
                                 self.sql.commit()
                                 x = x+1
                     
@@ -135,14 +135,17 @@ class botclient(discord.Client):
                  await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe einen Link an")
                  
                  return
-            
+            try:
+                kennwort =  message.content.split(" ")[3]
+            except IndexError:
+                pass
 
             currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Setze Links für Meetings mit der Modul-ID "+ module_id)
 
             if meetings := self.sql.execute("select * from meetings where id=?",(module_id,)).fetchall():
                 for compare in meetings:
-                    querydata = (compare[0],compare[1],compare[2],module_id,compare[5],compare[6],compare[7],compare[8])
-                    if returned_data:=self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=? and year=? and month=? and day=? and time=?",querydata).fetchall():
+                    querydata = (compare[0],compare[1],compare[2],module_id)
+                    if returned_data:=self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=?",querydata).fetchall():
                         if len(returned_data) > 1:
                             dozenten= str()
                             dozentenlist = list()
@@ -151,15 +154,23 @@ class botclient(discord.Client):
                                 dozenten = dozenten +symbols[x] + i[4]+ "\n"
                                 dozentenlist.append(i[4])
                                 x=x+1
-                            await currentmessage.edit(content="\U0001F504 ***[RUNNING]*** Für das Modul "+ module_id+" gibt es parallele Termine mit verschiedenen Dozenten. Reagiere auf diese Nachricht mit dem richtigen Emoji, um die bestimmte Vorlesung auszwählen:\n" +dozenten)
+                            await currentmessage.edit(content="\U0001F504 ***[RUNNING]*** Für das Modul "+ module_id+" gibt es Termine mit verschiedenen Dozenten. Reagiere auf diese Nachricht mit dem richtigen Emoji, um die bestimmte Vorlesung auszwählen:\n" +dozenten)
                             self.waitforreaction[currentmessage.id]=dict()
                             self.waitforreaction[currentmessage.id]["usermessage"] = message
                             self.waitforreaction[currentmessage.id]["choiceoptions"] = dozentenlist
                             self.waitforreaction[currentmessage.id]["ownmessage"] = currentmessage
                             self.waitforreaction[currentmessage.id]["module_id"] = module_id
                             self.waitforreaction[currentmessage.id]["link"] = link
+                            if kennwort:
+                                self.waitforreaction[currentmessage.id]["kennwort"] = kennwort
+                            else:
+                                self.waitforreaction[currentmessage.id]["kennwort"] = "NULL"
+
                             return
-                self.sql.execute("update meetings set link=? where id=?",(link,module_id))
+                if kennwort:
+                    self.sql.execute("update meetings set link=?, kennwort=? where id=?",(link,kennwort,module_id))
+                else:
+                    self.sql.execute("update meetings set link=? where id=?",(link,module_id))
                 self.sql.commit()
             else:
                 await currentmessage.edit(content="\U0000274C ***[FAILED]*** Es gibt kein Modul mit der ID "+module_id)
@@ -202,7 +213,11 @@ class botclient(discord.Client):
                                 currentmessage = self.waitforreaction[reaction.message.id]["ownmessage"]
                                 module_id = self.waitforreaction[reaction.message.id]["module_id"]
                                 link = self.waitforreaction[reaction.message.id]["link"]
-                                self.sql.execute("update meetings set link=? where id=? and dozent=?",(link,module_id,dozent))
+                                if self.waitforreaction[reaction.message.id]["kennwort"] != "NULL":
+                                    kennwort = self.waitforreaction[reaction.message.id]["kennwort"]
+                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=?",(link,kennwort,module_id,dozent))
+                                else:
+                                    self.sql.execute("update meetings set link=? where id=? and dozent=?",(link,module_id,dozent))
                                 self.sql.commit()
                                 await message.add_reaction("\U00002705")
                                 try:
@@ -251,7 +266,14 @@ class botclient(discord.Client):
                         channel = self.get_channel(meeting[1])
                         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/" +str(channel.id) +"]"
                         print(locationbracket+timebracket()+"Sende Info zur Vorlesung "+meeting[2])
-                        if meeting[9] != "NULL":
+                        
+                        if meeting[9] != "NULL" and meeting[10] != "NULL":
+                            button = discord.Embed()
+                            button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
+                            button.add_field(name="Kennwort:",value=meeting[10],inline=False)
+                            await channel.send(content="\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+                        
+                        elif meeting[9] != "NULL" and meeting[10] == "NULL":
                             button = discord.Embed()
                             button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
                             await channel.send(content="\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
