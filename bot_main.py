@@ -146,13 +146,26 @@ class botclient(discord.Client):
                 for compare in meetings:
                     querydata = (compare[0],compare[1],compare[2],module_id)
                     if returned_data:=self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=?",querydata).fetchall():
+                        print(returned_data)
+                        newreturneddata = list()
+                        
+                        for checking in returned_data:
+                            skip = False
+                            for checkdata in newreturneddata:
+                                if checkdata[4] == checking[4]:
+                                    skip = True
+                            if not skip:
+                                newreturneddata.append(checking)
+                        returned_data = newreturneddata
+                        print(returned_data)
+                        del newreturneddata
                         if len(returned_data) > 1:
                             dozenten= str()
                             dozentenlist = list()
                             x=0
-                            for i in returned_data:
-                                dozenten = dozenten +symbols[x] + i[4]+ "\n"
-                                dozentenlist.append(i[4])
+                            for data in returned_data:
+                                dozenten = dozenten +symbols[x] + data[4]+ "\n"
+                                dozentenlist.append(data[4])
                                 x=x+1
                             await currentmessage.edit(content="\U0001F504 ***[RUNNING]*** Für das Modul "+ module_id+" gibt es Termine mit verschiedenen Dozenten. Reagiere auf diese Nachricht mit dem richtigen Emoji, um die bestimmte Vorlesung auszwählen:\n" +dozenten)
                             self.waitforreaction[currentmessage.id]=dict()
