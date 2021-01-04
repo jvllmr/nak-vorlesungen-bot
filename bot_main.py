@@ -285,7 +285,7 @@ class botclient(discord.Client):
                             button = discord.Embed()
                             button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
                             button.add_field(name="Kennwort:",value=meeting[10],inline=False)
-                            await channel.send(content="\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+                            await channel.send(content="\U00002757 @"+meeting[11]+" Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
                         
                         elif meeting[9] != "NULL" and meeting[10] == "NULL":
                             button = discord.Embed()
