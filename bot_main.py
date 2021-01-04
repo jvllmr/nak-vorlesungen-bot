@@ -92,10 +92,11 @@ class botclient(discord.Client):
                                     module_id = "Z"
                                     break
                             dozent=component.get("summary").split(",")[2]
+                            zenturie = component.get("summary").split(",")[0].split(": ")[1]
 
                             if not module_id:  
                                 await message.add_reaction("\U0000274C")
-                                await currentmessage.edit(content="\U0000274C ***[FAILED]*** Konnte in "+f.filename+"nicht die Modul-ID vom Termin "+component.get("summary").encode()+" finden")
+                                await currentmessage.edit(content="\U0000274C ***[FAILED]*** Konnte in "+f.filename+" nicht die Modul-ID vom Termin "+component.get("summary").encode()+" finden")
                                 return
                             
                             datetime = str(component.get("DTSTART").dt).split(" ")
@@ -103,12 +104,12 @@ class botclient(discord.Client):
                             month = int(datetime[0].split("-")[1])
                             day = int(datetime[0].split("-")[2])
                             time = int(datetime[1].split(":")[0] + datetime[1].split(":")[1])
-                            data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL")
+                            data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL",zenturie)
                             if self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(message.guild.id,message.channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
                                 print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
                             else:
                                 print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
-                                self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?)", data)
+                                self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?)", data)
                                 self.sql.commit()
                                 x = x+1
                     
@@ -289,9 +290,9 @@ class botclient(discord.Client):
                         elif meeting[9] != "NULL" and meeting[10] == "NULL":
                             button = discord.Embed()
                             button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
-                            await channel.send(content="\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+                            await channel.send(content="\U00002757 @"+meeting[11]+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
                         else:
-                            await channel.send("\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Leider ist noch kein Link zum Meeting hinterlegt.")
+                            await channel.send("\U00002757 @"+meeting[11]+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Leider ist noch kein Link zum Meeting hinterlegt.")
                 print(timebracket()+"Meeting-Check fertig!")
                 await asyncio.sleep(60)
         except Exception as err:
