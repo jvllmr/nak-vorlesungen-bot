@@ -139,7 +139,7 @@ class botclient(discord.Client):
             try:
                 kennwort =  message.content.split(" ")[3]
             except IndexError:
-                pass
+                kennwort = None
 
             currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Setze Links für Meetings mit der Modul-ID "+ module_id)
 
@@ -184,7 +184,7 @@ class botclient(discord.Client):
                 if kennwort:
                     self.sql.execute("update meetings set link=?, kennwort=? where id=?",(link,kennwort,module_id))
                 else:
-                    self.sql.execute("update meetings set link=? where id=?",(link,module_id))
+                    self.sql.execute("update meetings set link=?, kennwort=? where id=?",(link,"NULL",module_id))
                 self.sql.commit()
             else:
                 await currentmessage.edit(content="\U0000274C ***[FAILED]*** Es gibt kein Modul mit der ID "+module_id)
@@ -231,7 +231,7 @@ class botclient(discord.Client):
                                     kennwort = self.waitforreaction[reaction.message.id]["kennwort"]
                                     self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=?",(link,kennwort,module_id,dozent))
                                 else:
-                                    self.sql.execute("update meetings set link=? where id=? and dozent=?",(link,module_id,dozent))
+                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=?",(link,"NULL",module_id,dozent))
                                 self.sql.commit()
                                 await message.add_reaction("\U00002705")
                                 try:
