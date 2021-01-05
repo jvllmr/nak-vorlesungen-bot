@@ -25,7 +25,7 @@ class botclient(discord.Client):
         # create the background task and run it in the background
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
         self.sql = sqlite3.connect("database.db")
-        self.prefix = "*"
+        self.prefix = "_"
         self.waitforreaction = dict()
 
     async def check_authentication(self, message):
