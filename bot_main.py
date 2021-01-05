@@ -280,19 +280,35 @@ class botclient(discord.Client):
                         channel = self.get_channel(meeting[1])
                         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/" +str(channel.id) +"]"
                         print(locationbracket+timebracket()+"Sende Info zur Vorlesung "+meeting[2])
-                        
+                        rolle = None
+                        for role in guild.roles:
+                            if role.name == meeting[11]:
+                                rolle = role.mention
+                                break
+
                         if meeting[9] != "NULL" and meeting[10] != "NULL":
                             button = discord.Embed()
                             button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
                             button.add_field(name="Kennwort:",value=meeting[10],inline=False)
-                            await channel.send(content="\U00002757 @"+meeting[11]+" Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
-                        
+                            if rolle:
+                                await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+                            else:
+                                await channel.send(content="\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+
                         elif meeting[9] != "NULL" and meeting[10] == "NULL":
                             button = discord.Embed()
                             button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
-                            await channel.send(content="\U00002757 @"+meeting[11]+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+                            if rolle:
+                                await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+                            else:
+                                await channel.send(content="\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
+
                         else:
-                            await channel.send("\U00002757 @"+meeting[11]+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Leider ist noch kein Link zum Meeting hinterlegt.")
+                            if rolle:
+                                await channel.send("\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Leider ist noch kein Link zum Meeting hinterlegt.")
+                            else:
+                                await channel.send("\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Leider ist noch kein Link zum Meeting hinterlegt.")
+                                
                 print(timebracket()+"Meeting-Check fertig!")
                 await asyncio.sleep(60)
         except Exception as err:
