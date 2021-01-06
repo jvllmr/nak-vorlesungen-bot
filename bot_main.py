@@ -280,6 +280,7 @@ class botclient(discord.Client):
                         channel = self.get_channel(meeting[1])
                         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/" +str(channel.id) +"]"
                         print(locationbracket+timebracket()+"Sende Info zur Vorlesung "+meeting[2])
+                        meeting_id = meeting[9].split("?")[0].split("/j/")[1]
                         rolle = None
                         for role in guild.roles:
                             if role.name == meeting[11]:
@@ -289,6 +290,7 @@ class botclient(discord.Client):
                         if meeting[9] != "NULL" and meeting[10] != "NULL":
                             button = discord.Embed()
                             button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
+                            button.add_field(name="Meeting ID:",value=meeting_id,inline=False)
                             button.add_field(name="Kennwort:",value=meeting[10],inline=False)
                             if rolle:
                                 await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
@@ -298,6 +300,7 @@ class botclient(discord.Client):
                         elif meeting[9] != "NULL" and meeting[10] == "NULL":
                             button = discord.Embed()
                             button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
+                            button.add_field(name="Meeting ID:",value=meeting_id,inline=False)
                             if rolle:
                                 await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
                             else:
