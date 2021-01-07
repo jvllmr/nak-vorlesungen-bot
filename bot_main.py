@@ -283,7 +283,8 @@ class botclient(discord.Client):
 
                         if "?" in meeting[9]:
                             meeting_id = meeting[9].split("?")[0].split("/j/")[1]
-                        else:
+                        
+                        elif meeting[9] != "NULL":
                             meeting_id = meeting[9].split("/j/")[1]
                         
                         rolle = None
