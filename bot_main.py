@@ -280,7 +280,12 @@ class botclient(discord.Client):
                         channel = self.get_channel(meeting[1])
                         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/" +str(channel.id) +"]"
                         print(locationbracket+timebracket()+"Sende Info zur Vorlesung "+meeting[2])
-                        meeting_id = meeting[9].split("?")[0].split("/j/")[1]
+
+                        if "?" in meeting[9]:
+                            meeting_id = meeting[9].split("?")[0].split("/j/")[1]
+                        else:
+                            meeting_id = meeting[9].split("/j/")[1]
+                        
                         rolle = None
                         for role in guild.roles:
                             if role.name == meeting[11]:
