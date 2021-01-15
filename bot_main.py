@@ -294,8 +294,12 @@ class botclient(discord.Client):
                                 break
 
                         if meeting[9] != "NULL" and meeting[10] != "NULL":
+                            if "?pwd=" in meeting[9]:
+                                link = f"[\U000025B6  Direkt Beitreten]({meeting[9]})"
+                            else:
+                                link = f"[\U000025B6  Beitreten (Kennwort manuell eingeben)]({meeting[9]})"
                             button = discord.Embed()
-                            button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
+                            button.add_field(name="Hier geht es zur Vorlesung:",value=link,inline=False)
                             button.add_field(name="Meeting ID:",value=meeting_id,inline=False)
                             button.add_field(name="Kennwort:",value=meeting[10],inline=False)
                             if rolle:
@@ -305,7 +309,7 @@ class botclient(discord.Client):
 
                         elif meeting[9] != "NULL" and meeting[10] == "NULL":
                             button = discord.Embed()
-                            button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6 Beitreten]("+meeting[9]+")",inline=False)
+                            button.add_field(name="Hier geht es zur Vorlesung:",value="[\U000025B6  Direkt Beitreten]("+meeting[9]+")",inline=False)
                             button.add_field(name="Meeting ID:",value=meeting_id,inline=False)
                             if rolle:
                                 await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
