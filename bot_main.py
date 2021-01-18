@@ -284,7 +284,7 @@ class botclient(discord.Client):
                         if "?" in meeting[9]:
                             meeting_id = meeting[9].split("?")[0].split("/j/")[1]
                         
-                        elif meeting[9] != "NULL" and "/j/" in meeting[9]:
+                        elif "/j/" in meeting[9]:
                             meeting_id = meeting[9].split("/j/")[1]
                         else:
                             meeting_id = "Nicht verfügbar"
