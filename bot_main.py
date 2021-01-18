@@ -92,7 +92,7 @@ class botclient(discord.Client):
                                     module_id = "Z"
                                     break
                             dozent=component.get("summary").split(",")[2]
-                            zenturie = component.get("summary").split(",")[0].split(": ")[1]
+                            zenturie = component.get("summary").split(",")[0]
 
                             if not module_id:  
                                 await message.add_reaction("\U0000274C")
@@ -284,9 +284,10 @@ class botclient(discord.Client):
                         if "?" in meeting[9]:
                             meeting_id = meeting[9].split("?")[0].split("/j/")[1]
                         
-                        elif meeting[9] != "NULL":
+                        elif meeting[9] != "NULL" and "/j/" in meeting[9]:
                             meeting_id = meeting[9].split("/j/")[1]
-                        
+                        else:
+                            meeting_id = "Nicht verfügbar"
                         rolle = None
                         for role in guild.roles:
                             if role.name == meeting[11]:
@@ -326,7 +327,7 @@ class botclient(discord.Client):
                 await asyncio.sleep(60)
         except Exception as err:
             self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
-            print(timebracket()+"Exception in meeting check occured and caught: \n"+str(err))
+            raise err
 
 try:
     keyfile = open("token.key","r")
