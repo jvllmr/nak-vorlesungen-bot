@@ -3,3 +3,4 @@ database.db
 *.ics
 .vscode
 *.code-workspace
+.dist
