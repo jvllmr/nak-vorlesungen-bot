@@ -143,6 +143,8 @@ class botclient(discord.Client):
                 except Exception as err:
                     await message.add_reaction("\U0000274C")
                     await message.channel.send("\U0000274C ***[FAILED]*** Gegebener Link brachte einen Fehler: "+str(err))
+                    print(err)
+                    traceback.print_tb(err.__traceback__)
                     return
 
         elif re.search("^["+self.prefix+"][l][i][n][k]", message.content):
