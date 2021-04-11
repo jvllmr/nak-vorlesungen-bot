@@ -363,7 +363,7 @@ class botclient(discord.Client):
             while not self.is_closed():
                 
                 nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("12") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("02"):
+                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("00"):
                     print(timebracket()+"Refetching the Calendar files")
                     
                     all_meetings = self.fetch_sql.execute("select * from meetings").fetchall()
