@@ -33,14 +33,16 @@ class botclient(discord.Client):
         guild = message.guild
         channel = message.channel
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
+        
+        r = requests.get(http_link)
+        
+            
         try:
-            r = requests.get(http_link)
-        except Exception as err:
-            await message.add_reaction("\U0000274C")
-            await message.channel.send("\U0000274C ***[FAILED]*** Gegebener Link brachte einen Fehler: "+str(err))
-            return
-        d = r.headers['content-disposition']
-        filename = re.findall("filename=(.+)", d)[0]
+            d = r.headers['content-disposition']
+            filename = re.findall("filename=(.+)", d)[0]
+        except Exception:
+            filename = os.path.basename(http_link)
+        
         mastermessage = "`\U0001F504 [RUNNING] Lese "+ filename + "`\n"
         currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Lese "+ filename)
         
