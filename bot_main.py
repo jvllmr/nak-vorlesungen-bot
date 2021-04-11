@@ -1,4 +1,4 @@
-import discord, sqlite3, asyncio, os, re, datetime, requests, codecs
+import discord, sqlite3, asyncio, os, re, datetime, requests, codecs, traceback
 from icalendar import Calendar
 
 
@@ -18,7 +18,82 @@ symbols = (
 def timebracket():
     return "["+ datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S")+"] "
 
+
+
+
+
+
+
+
+
+
 class botclient(discord.Client):
+
+    async def add_assignments(self, message, sql_object, http_link):
+        guild = message.guild
+        channel = message.channel
+        locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
+        try:
+            r = requests.get(http_link)
+        except Exception as err:
+            await message.add_reaction("\U0000274C")
+            await message.channel.send("\U0000274C ***[FAILED]*** Gegebener Link brachte einen Fehler: "+str(err))
+            return
+        d = r.headers['content-disposition']
+        filename = re.findall("filename=(.+)", d)[0]
+        mastermessage = "`\U0001F504 [RUNNING] Lese "+ filename + "`\n"
+        currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Lese "+ filename)
+        
+        if not ".ics" in filename:
+            await message.add_reaction("\U0000274C")
+            await currentmessage.edit(content="\U0000274C ***[FAILED]*** "+ filename + " ist keine iCalender-Datei")
+            return
+        
+        icscal = Calendar.from_ical(codecs.encode(codecs.decode(r.content,encoding="ANSI"),encoding="utf-8"))
+        x=0
+        for component in icscal.walk():
+
+            if component.name == "VEVENT":
+                
+                await asyncio.sleep(0.5)
+                await currentmessage.edit(content=mastermessage+ "\U0001F504 ***[RUNNING]*** Füge Termin "+ component.get("summary")+ " hinzu")
+
+                for i in component.get("summary").split(","):
+                    
+                    if regex:=re.search(r"[A-Z]\d\d\d",i):
+                        assignment_name = i.lstrip("V")
+                        module_id = regex.group()
+                        break
+
+                    elif "Zenturienbetreuung" in i:
+                        assignment_name = i
+                        module_id = "Z"
+                        break
+                dozent=component.get("summary").split(",")[2]
+                zenturie = component.get("summary").split(",")[0]
+
+                if not module_id:  
+                    await message.add_reaction("\U0000274C")
+                    await currentmessage.edit(content="\U0000274C ***[FAILED]*** Konnte in "+filename+" nicht die Modul-ID vom Termin "+component.get("summary").encode()+" finden")
+                    return
+                
+                datetime = str(component.get("DTSTART").dt).split(" ")
+                year = int(datetime[0].split("-")[0])
+                month = int(datetime[0].split("-")[1])
+                day = int(datetime[0].split("-")[2])
+                time = int(datetime[1].split(":")[0] + datetime[1].split(":")[1])
+                data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL",zenturie,http_link)
+                if sql_object.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(message.guild.id,message.channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
+                    print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
+                else:
+                    print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
+                    sql_object.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
+                    sql_object.commit()
+                    x = x+1
+                
+        await message.add_reaction("\U00002705")
+        await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich "+str(x)+" neue Termine aus der Datei "+filename + " migriert")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -26,6 +101,7 @@ class botclient(discord.Client):
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
         self.assignment_refresher = self.loop.create_task(self.refresh_assignments())
         self.sql = sqlite3.connect("database.db")
+        self.fetch_sql = sqlite3.connect("database.db")
         self.prefix = "_"
         self.waitforreaction = dict()
 
@@ -61,69 +137,13 @@ class botclient(discord.Client):
 
             else:
                 http_link = message.content.split(" ")[1]
+                
                 try:
-                    r = requests.get(http_link)
+                    await self.add_assignments(message, self.sql, http_link)
                 except Exception as err:
                     await message.add_reaction("\U0000274C")
                     await message.channel.send("\U0000274C ***[FAILED]*** Gegebener Link brachte einen Fehler: "+str(err))
                     return
-                d = r.headers['content-disposition']
-                filename = re.findall("filename=(.+)", d)[0]
-                mastermessage = "`\U0001F504 [RUNNING] Lese "+ filename + "`\n"
-                currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Lese "+ filename)
-                
-                if not ".ics" in filename:
-                    await message.add_reaction("\U0000274C")
-                    await currentmessage.edit(content="\U0000274C ***[FAILED]*** "+ filename + " ist keine iCalender-Datei")
-                    return
-                
-                icscal = Calendar.from_ical(codecs.encode(codecs.decode(r.content,encoding="ANSI"),encoding="utf-8"))
-                x=0
-                for component in icscal.walk():
-
-                    if component.name == "VEVENT":
-                        
-                        await asyncio.sleep(0.5)
-                        await currentmessage.edit(content=mastermessage+ "\U0001F504 ***[RUNNING]*** Füge Termin "+ component.get("summary")+ " hinzu")
-
-                        for i in component.get("summary").split(","):
-                            
-                            if regex:=re.search(r"[A-Z]\d\d\d",i):
-                                assignment_name = i.lstrip("V")
-                                module_id = regex.group()
-                                break
-
-                            elif "Zenturienbetreuung" in i:
-                                assignment_name = i
-                                module_id = "Z"
-                                break
-                        dozent=component.get("summary").split(",")[2]
-                        zenturie = component.get("summary").split(",")[0]
-
-                        if not module_id:  
-                            await message.add_reaction("\U0000274C")
-                            await currentmessage.edit(content="\U0000274C ***[FAILED]*** Konnte in "+filename+" nicht die Modul-ID vom Termin "+component.get("summary").encode()+" finden")
-                            return
-                        
-                        datetime = str(component.get("DTSTART").dt).split(" ")
-                        year = int(datetime[0].split("-")[0])
-                        month = int(datetime[0].split("-")[1])
-                        day = int(datetime[0].split("-")[2])
-                        time = int(datetime[1].split(":")[0] + datetime[1].split(":")[1])
-                        data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL",zenturie,http_link)
-                        if self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(message.guild.id,message.channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
-                            print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
-                        else:
-                            print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
-                            self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
-                            self.sql.commit()
-                            x = x+1
-                
-                
-                
-                
-                await message.add_reaction("\U00002705")
-                await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich "+str(x)+" neue Termine aus der Datei "+filename + " migriert")
 
         elif re.search("^["+self.prefix+"][l][i][n][k]", message.content):
             if not await self.check_authentication(message):
@@ -336,14 +356,72 @@ class botclient(discord.Client):
             raise err
 
     async def refresh_assignments(self):
+        # TODO: console debug output
         await self.wait_until_ready()
         try:
-            await asyncio.sleep(60)
+            print(timebracket()+"Refetching handler started")
             while not self.is_closed():
-                if datetime.datetime.strftime() == "" and datetime.datetime.strftime() == "":
-                    pass
+                
+                nowtime = datetime.datetime.now()
+                if int(nowtime.strftime("%H")) == int("12") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("02"):
+                    print(timebracket()+"Refetching the Calendar files")
+                    
+                    all_meetings = self.fetch_sql.execute("select * from meetings").fetchall()
+                    zenturien = dict()
+                    channel_ids = list()
+                    fetch_links = dict()
+                   
+                    for meeting in all_meetings:
+                        if not meeting[1] in channel_ids:
+                            channel_ids.append(meeting[1])
+                            fetch_links[meeting[1]] = list()
+                            for link in self.fetch_sql.execute("select fetch_link from meetings where channel=?",(meeting[1],)).fetchall():
+                                if not link[0] in fetch_links[meeting[1]]:
+                                    fetch_links[meeting[1]].append(link[0])
+                        try:
+                            if zenturien[meeting[11]]:
+                                pass
+                        except KeyError:
+                            zenturien[meeting[11]] = dict()
+                    for meeting in all_meetings:
+                        
+                        try:
+                            if zenturien[meeting[11]][meeting[3]]:
+                                pass
+                        except KeyError:
+                            zenturien[meeting[11]][meeting[3]] = dict()
+                            for dozent in self.fetch_sql.execute("select dozent from meetings where zenturie=? and id=?",(meeting[11],meeting[3])).fetchall():
+                                zenturien[meeting[11]][meeting[3]][dozent[0]] = dict()
+                                zenturien[meeting[11]][meeting[3]][dozent[0]]["link"] = meeting[9]
+                                zenturien[meeting[11]][meeting[3]][dozent[0]]["kennwort"] = meeting[9]
+        
+                
+                    for channel_id in channel_ids:
+                        try:
+                            channel = self.get_channel(channel_id)
+                            message = await channel.send("\U0001F504 ***[RUNNING]*** Lade Kalenderdateien neu...")
+                            for link in fetch_links[channel_id]:
+                                self.fetch_sql.execute("delete from meetings where channel=? and fetch_link=?",(channel_id,link))
+                                await self.add_assignments(message,self.fetch_sql,link)
+                            await message.edit(content="\U0001F504 ***[RUNNING]*** Setze Links wieder neu...")
+                            for zenturie in zenturien:
+                                for modul in zenturien[zenturie]:
+                                    for dozent in zenturien[zenturie][modul]:
+                                        self.fetch_sql.execute("update meetings set link=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["link"],zenturie,modul,dozent))
+                                        self.fetch_sql.execute("update meetings set kennwort=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["kennwort"],zenturie,modul,dozent))
+                            await message.edit(content="\U00002705 ***[DONE]*** Alle Kalenderdateien neu geladen")
+                        except Exception as err:
+                            self.fetch_sql.rollback()
+                            print(err)
+                            traceback.print_tb(err.__traceback__)
+                            await message.add_reaction("\U0000274C")
+                            await message.edit(content="\U0000274C ***[FAILED]*** Es gab einen Fehler: "+str(err))
+
+                await asyncio.sleep(60)
         except Exception as err:
-            self.refresh_assignments = self.loop.create_task(self.refresh_assignments())
+            self.assignment_refresher = self.loop.create_task(self.refresh_assignments())
+            print(err)
+            traceback.print_tb(err.__traceback__)
             raise err
 
 try:
