@@ -49,7 +49,7 @@ class botclient(discord.Client):
             await currentmessage.edit(content="\U0000274C ***[FAILED]*** "+ filename + " ist keine iCalender-Datei")
             return
         
-        icscal = Calendar.from_ical(codecs.encode(codecs.decode(r.content,encoding="ANSI"),encoding="utf-8"))
+        icscal = Calendar.from_ical(codecs.encode(codecs.decode(r.content,encoding="cp1252"),encoding="utf-8"))
         x=0
         for component in icscal.walk():
 
