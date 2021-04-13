@@ -90,7 +90,6 @@ class botclient(discord.Client):
                 else:
                     print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
                     sql_object.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
-                    sql_object.commit()
                     x = x+1
                 
         await message.add_reaction("\U00002705")
@@ -142,6 +141,7 @@ class botclient(discord.Client):
                 
                 try:
                     await self.add_assignments(message, self.sql, http_link)
+                    self.sql.commit()
                 except Exception as err:
                     await message.add_reaction("\U0000274C")
                     await message.channel.send("\U0000274C ***[FAILED]*** Gegebener Link brachte einen Fehler: "+str(err))
