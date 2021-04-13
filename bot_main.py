@@ -414,6 +414,7 @@ class botclient(discord.Client):
                                         self.fetch_sql.execute("update meetings set link=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["link"],zenturie,modul,dozent))
                                         self.fetch_sql.execute("update meetings set kennwort=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["kennwort"],zenturie,modul,dozent))
                             await message.edit(content="\U00002705 ***[DONE]*** Alle Kalenderdateien neu geladen")
+                            self.fetch_sql.commit()
                         except Exception as err:
                             self.fetch_sql.rollback()
                             print(err)
