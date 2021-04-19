@@ -397,7 +397,7 @@ class botclient(discord.Client):
                             for dozent in self.fetch_sql.execute("select dozent from meetings where zenturie=? and id=?",(meeting[11],meeting[3])).fetchall():
                                 zenturien[meeting[11]][meeting[3]][dozent[0]] = dict()
                                 zenturien[meeting[11]][meeting[3]][dozent[0]]["link"] = meeting[9]
-                                zenturien[meeting[11]][meeting[3]][dozent[0]]["kennwort"] = meeting[9]
+                                zenturien[meeting[11]][meeting[3]][dozent[0]]["kennwort"] = meeting[10]
         
                 
                     for channel_id in channel_ids:
