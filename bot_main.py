@@ -400,7 +400,7 @@ class botclient(discord.Client):
             print(timebracket()+"Refetching handler started")
             while not self.is_closed():
                 nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("17") and nowtime.strftime("%w") == "4" and int(nowtime.strftime("%M")) == int("23"):
+                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("00"):
                     for binding in sqlcon.execute("select * from bindings").fetchall():
                         if binding:
                             try:
