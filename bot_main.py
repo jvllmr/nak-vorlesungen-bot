@@ -18,7 +18,8 @@ symbols = (
 def timebracket():
     return "["+ datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S")+"] "
 
-
+def removeDuplicates(lst):
+    return list(set([i for i in lst]))
 
 
 
@@ -36,18 +37,17 @@ class botclient(discord.Client):
         # create the background task and run it in the background
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
         self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
-        self.sql = sqlite3.connect("database.db")
         self.prefix = "_"
         self.waitforreaction = dict()
 
-    def refresh_assignments(self, guild, channel, zenturie):
+    def refresh_assignments(self, sql_object, guild, channel, zenturie):
        
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
         http_link = None
         for semester in range(7):
             r = requests.get(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics")
             if r.status_code == 404:
-                self.sql.execute("delete from meetings where fetch_link=?",(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics",))
+                sql_object.execute("delete from meetings where fetch_link=?",(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics",))
             else:
                 http_link = f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics"
                 break
@@ -67,36 +67,10 @@ class botclient(discord.Client):
             raise FileNotFoundError(filename+" ist keine iCalendar-Datei")
         
 
-        all_meetings = self.sql.execute("select * from meetings").fetchall()
-        zenturien = dict()
-        channel_ids = list()
-        fetch_links = dict()
+        links_backup = sql_object.execute("select link, kennwort, server, channel, id, dozent from meetings where fetch_link=? and zenturie=?",(http_link,zenturie)).fetchall()
         
-        for meeting in all_meetings:
-            if not meeting[1] in channel_ids:
-                channel_ids.append(meeting[1])
-                fetch_links[meeting[1]] = list()
-                for link in self.sql.execute("select fetch_link from meetings where channel=?",(meeting[1],)).fetchall():
-                    if not link[0] in fetch_links[meeting[1]]:
-                        fetch_links[meeting[1]].append(link[0])
-            try:
-                if zenturien[meeting[11]]:
-                    pass
-            except KeyError:
-                zenturien[meeting[11]] = dict()
-        for meeting in all_meetings:
-            
-            try:
-                if zenturien[meeting[11]][meeting[3]]:
-                    pass
-            except KeyError:
-                zenturien[meeting[11]][meeting[3]] = dict()
-                for dozent in self.sql.execute("select dozent from meetings where zenturie=? and id=?",(meeting[11],meeting[3])).fetchall():
-                    zenturien[meeting[11]][meeting[3]][dozent[0]] = dict()
-                    zenturien[meeting[11]][meeting[3]][dozent[0]]["link"] = meeting[9]
-                    zenturien[meeting[11]][meeting[3]][dozent[0]]["kennwort"] = meeting[10]
         
-        self.sql.execute("delete from meetings where fetch_link=?", (http_link,))
+        sql_object.execute("delete from meetings where fetch_link=?", (http_link,))
         icscal = Calendar.from_ical(codecs.encode(codecs.decode(r.content,encoding="cp1252"),encoding="utf-8"))
         
         for component in icscal.walk():
@@ -128,31 +102,17 @@ class botclient(discord.Client):
                 day = int(meeting_time[0].split("-")[2])
                 time = int(meeting_time[1].split(":")[0] + meeting_time[1].split(":")[1])
                 data = (guild.id,channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL",zenturie,http_link)
-                if self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(guild.id,channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
+                if sql_object.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(guild.id,channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
                     print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
                 else:
                     print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
-                    self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
-                        
+                    sql_object.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
 
+                if links_backup:
+                    links_backup = removeDuplicates(links_backup)
+                    for modul in links_backup:
+                        sql_object.execute("update meetings set link=?, kennwort=? where server=? and channel=? and id=? and dozent=?", modul)
                     
-                    
-                    
-        
-                
-                for channel_id in channel_ids:
-                    
-                    for zenturie in zenturien:
-                        for modul in zenturien[zenturie]:
-                            for dozent in zenturien[zenturie][modul]:
-                                self.sql.execute("update meetings set link=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["link"],zenturie,modul,dozent))
-                                self.sql.execute("update meetings set kennwort=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["kennwort"],zenturie,modul,dozent))
-                        
-                            
-                
-        
-
-    
 
     async def check_authentication(self, message):
         if message.author.id == message.guild.owner_id or str(message.author) == "krey#6526":
@@ -172,33 +132,38 @@ class botclient(discord.Client):
     async def on_message(self, message):
         guild = message.guild
         channel = message.channel
+        sqlcon = sqlite3.connect("database.db")
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
         if message.author == self.user:
+            sqlcon.close()
             return
         
         elif message.content.split(" ")[0] == self.prefix+"set":
             if not await self.check_authentication(message):
+                sqlcon.close()
                 return
             elif len(message.content.split(" ")) < 2:
                 await message.add_reaction("\U0000274C")
                 await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe eine Zenturie an")
+                sqlcon.close()
                 return
-
             else:
                 zenturie = message.content.split(" ")[1]
                 
                 try:
                     currentmessage = await message.channel.send(f"\U0001F504 ***[RUNNING]*** Setze Zenturie {zenturie}...")
-                    if not self.sql.execute("select zenturie from bindings where server=? and channel=?",(guild.id,channel.id)).fetchone():
-                        self.sql.execute("insert into bindings values (?,?,?)",(guild.id,channel.id,zenturie))
+                    if not sqlcon.execute("select zenturie from bindings where server=? and channel=?",(guild.id,channel.id)).fetchone():
+                        sqlcon.execute("insert into bindings values (?,?,?)",(guild.id,channel.id,zenturie))
                     else:
-                        self.sql.execute("update bindings set zenturie=? where server=? and channel=?",(zenturie,guild.id,channel.id))
-                    self.refresh_assignments(guild, channel, zenturie)
-                    self.sql.commit()
+                        sqlcon.execute("update bindings set zenturie=? where server=? and channel=?",(zenturie,guild.id,channel.id))
+                    self.refresh_assignments(sqlcon, guild, channel, zenturie)
+                    sqlcon.commit()
+                    sqlcon.close()
                     await message.add_reaction("\U00002705")
                     await currentmessage.edit(content=f"\U00002705 ***[DONE]*** Zenturie {zenturie} gesetzt")
                 except Exception as err:
-                    self.sql.rollback()
+                    sqlcon.rollback()
+                    sqlcon.close()
                     try:
                         await message.add_reaction("\U0000274C")
                         await message.channel.send(f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim setzen von Zenturie {zenturie}: "+str(err))
@@ -232,10 +197,10 @@ class botclient(discord.Client):
 
             currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Setze Links für Meetings mit der Modul-ID "+ module_id)
 
-            if meetings := self.sql.execute("select * from meetings where id=? and channel=? and server=?",(module_id, channel.id, guild.id)).fetchall():
+            if meetings := sqlcon.execute("select * from meetings where id=? and channel=? and server=?",(module_id, channel.id, guild.id)).fetchall():
                 for compare in meetings:
                     querydata = (compare[0],compare[1],compare[2],module_id)
-                    if returned_data:=self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=?",querydata).fetchall():
+                    if returned_data:=sqlcon.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=?",querydata).fetchall():
                         print(returned_data)
                         newreturneddata = list()
                         
@@ -268,17 +233,18 @@ class botclient(discord.Client):
                                 self.waitforreaction[currentmessage.id]["kennwort"] = kennwort
                             else:
                                 self.waitforreaction[currentmessage.id]["kennwort"] = "NULL"
-
+                            sqlcon.close()
                             return
                 if kennwort:
-                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and channel=? and server=?",(link,kennwort,module_id,channel.id,guild.id))
+                    sqlcon.execute("update meetings set link=?, kennwort=? where id=? and channel=? and server=?",(link,kennwort,module_id,channel.id,guild.id))
                 else:
-                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and channel=? and server=?",(link,"NULL",module_id,channel.id,guild.id))
-                self.sql.commit()
+                    sqlcon.execute("update meetings set link=?, kennwort=? where id=? and channel=? and server=?",(link,"NULL",module_id,channel.id,guild.id))
+                sqlcon.commit()
+                sqlcon.close()
             else:
                 await currentmessage.edit(content="\U0000274C ***[FAILED]*** Es gibt kein Modul mit der ID "+module_id)
                 await message.add_reaction("\U0000274C")
-                
+                sqlcon.close()
                 return
 
             await message.add_reaction("\U00002705")
@@ -288,6 +254,7 @@ class botclient(discord.Client):
         elif message.content == self.prefix+"help" or re.search("^["+self.prefix+"]$",message.content):
             await message.channel.send("Für diese Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n"+self.prefix+"set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n"+self.prefix+"link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID\n"+self.prefix+"reset löscht alle Daten/Einstellungen für den Kanal")
             await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
+            sqlcon.close()
         
         elif re.search("^["+self.prefix+"][r][e][s][e][t]", message.content):
             if await self.check_authentication(message):
@@ -295,12 +262,15 @@ class botclient(discord.Client):
                 self.waitforreaction[currentmessage.id]=dict()
                 self.waitforreaction[currentmessage.id]["usermessage"] = message
                 self.waitforreaction[currentmessage.id]["ownmessage"] = currentmessage
+            sqlcon.close()
 
     async def on_reaction_add(self,reaction, user):
         guild = reaction.message.guild
         channel = reaction.message.channel
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
+        sqlcon = sqlite3.connect("database.db")
         if user == self.user:
+            sqlcon.close()
             return
         try:
             if self.waitforreaction[reaction.message.id]:
@@ -318,10 +288,10 @@ class botclient(discord.Client):
                                 link = self.waitforreaction[reaction.message.id]["link"]
                                 if self.waitforreaction[reaction.message.id]["kennwort"] != "NULL":
                                     kennwort = self.waitforreaction[reaction.message.id]["kennwort"]
-                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=? and channel=? and server=?",(link,kennwort,module_id,dozent,channel.id,guild.id))
+                                    sqlcon.execute("update meetings set link=?, kennwort=? where id=? and dozent=? and channel=? and server=?",(link,kennwort,module_id,dozent,channel.id,guild.id))
                                 else:
-                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=? and channel=? and server=?",(link,"NULL",module_id,dozent,channel.id,guild.id))
-                                self.sql.commit()
+                                    sqlcon.execute("update meetings set link=?, kennwort=? where id=? and dozent=? and channel=? and server=?",(link,"NULL",module_id,dozent,channel.id,guild.id))
+                                sqlcon.commit()
                                 await message.add_reaction("\U00002705")
                                 try:
                                     await reaction.remove(user)
@@ -332,14 +302,15 @@ class botclient(discord.Client):
                                 del self.waitforreaction[reaction.message.id]
                                 break
                             x=x+1
+                        sqlcon.close()
 
                 except KeyError:
                     if reaction.emoji=="\U00002705":
                         message = self.waitforreaction[reaction.message.id]["usermessage"]
                         currentmessage = self.waitforreaction[reaction.message.id]["ownmessage"]
-                        self.sql.execute("delete from meetings where server=? and channel=?",(message.guild.id,message.channel.id))
-                        self.sql.execute("delete from bindings where server=? and channel=?",(message.guild.id,message.channel.id))
-                        self.sql.commit()
+                        sqlcon.execute("delete from meetings where server=? and channel=?",(message.guild.id,message.channel.id))
+                        sqlcon.execute("delete from bindings where server=? and channel=?",(message.guild.id,message.channel.id))
+                        sqlcon.commit()
                         try:
                             await reaction.remove(user)
                         except discord.errors.Forbidden:
@@ -348,12 +319,13 @@ class botclient(discord.Client):
                         await currentmessage.edit(content="\U00002705 ***[DONE]*** Alle Daten gelöscht")
                         print(locationbracket+timebracket()+str(message.author)+" hat alle Daten entfernt")
                         del self.waitforreaction[reaction.message.id]
-
+                    sqlcon.close()
         except KeyError:
-            pass
+            sqlcon.close()
 
     async def check_for_next_assignment(self):
         await self.wait_until_ready()
+        sqlcon = sqlite3.connect("database.db")
         try:
             while not self.is_closed():
                 print(timebracket()+"Starte Meeting-Check...")
@@ -363,7 +335,7 @@ class botclient(discord.Client):
                 month = int(currenttime.split(" ")[0].split("-")[1])
                 day = int(currenttime.split(" ")[0].split("-")[2])
                 
-                if meetings:= self.sql.execute("select * from meetings where year=? and month=? and day=? and time=?",(year,month,day,time)).fetchall():
+                if meetings:= sqlcon.execute("select * from meetings where year=? and month=? and day=? and time=?",(year,month,day,time)).fetchall():
                     print(timebracket()+"Meetings mit passender Zeit gefunden!")
                     for meeting in meetings:
                         guild = self.get_guild(meeting[0])
@@ -416,30 +388,32 @@ class botclient(discord.Client):
                 print(timebracket()+"Meeting-Check fertig!")
                 await asyncio.sleep(60)
         except Exception as err:
+            sqlcon.close()
             self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
             raise err
 
     async def refresh_assignments_starter(self):
         # TODO: console debug output
         await self.wait_until_ready()
+        sqlcon = sqlite3.connect("database.db")
         try:
             print(timebracket()+"Refetching handler started")
             while not self.is_closed():
                 nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("14") and nowtime.strftime("%w") == "4" and int(nowtime.strftime("%M")) == int("31"):
-                    for binding in self.sql.execute("select * from bindings").fetchall():
+                if int(nowtime.strftime("%H")) == int("17") and nowtime.strftime("%w") == "4" and int(nowtime.strftime("%M")) == int("23"):
+                    for binding in sqlcon.execute("select * from bindings").fetchall():
                         if binding:
                             try:
                                 guild = self.get_guild(binding[0])
                                 channel = self.get_channel(binding[1])
                                 zenturie = binding[2]
                                 currentmessage = await channel.send(f"\U0001F504 ***[RUNNING]*** Aktualisiere die Termine...")
-                                self.refresh_assignments(guild,channel,zenturie)
-                                self.sql.commit()
+                                self.refresh_assignments(sqlcon,guild,channel,zenturie)
+                                sqlcon.commit()
                                 await currentmessage.edit(content=f"\U00002705 ***[DONE]*** Alle Termine aktualisiert")
                                 
                             except Exception as err:
-                                self.sql.rollback()
+                                sqlcon.rollback()
                                 try:
                                     await currentmessage.edit(content=f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim Aktualisieren: "+str(err))
                                 except Exception:
@@ -448,6 +422,7 @@ class botclient(discord.Client):
                                 traceback.print_tb(err.__traceback__)
                 await asyncio.sleep(60)
         except Exception as err:
+            sqlcon.close()
             self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
             print(err)
             traceback.print_tb(err.__traceback__)
