@@ -173,7 +173,7 @@ class botclient(discord.Client):
 
             currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Setze Links für Meetings mit der Modul-ID "+ module_id)
 
-            if meetings := self.sql.execute("select * from meetings where id=?",(module_id,)).fetchall():
+            if meetings := self.sql.execute("select * from meetings where id=? and channel=?",(module_id, channel.id)).fetchall():
                 for compare in meetings:
                     querydata = (compare[0],compare[1],compare[2],module_id)
                     if returned_data:=self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=?",querydata).fetchall():
