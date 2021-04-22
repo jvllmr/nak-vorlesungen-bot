@@ -29,36 +29,81 @@ def timebracket():
 
 class botclient(discord.Client):
 
-    async def add_assignments(self, message, sql_object, http_link):
-        guild = message.guild
-        channel = message.channel
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # create the background task and run it in the background
+        self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
+        self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
+        self.sql = sqlite3.connect("database.db")
+        self.prefix = "_"
+        self.waitforreaction = dict()
+
+    def refresh_assignments(self, guild, channel, zenturie):
+       
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
-        
-        r = requests.get(http_link)
-        
+        http_link = None
+        for semester in range(7):
+            r = requests.get(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics")
+            if r.status_code == 404:
+                self.sql.execute("delete from meetings where fetch_link=?",(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics",))
+            else:
+                http_link = f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics"
+                break
             
+        if not http_link:
+            return
+        
         try:
             d = r.headers['content-disposition']
             filename = re.findall("filename=(.+)", d)[0]
         except Exception:
             filename = os.path.basename(http_link)
         
-        mastermessage = "`\U0001F504 [RUNNING] Lese "+ filename + "`\n"
-        currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Lese "+ filename)
+        
         
         if not ".ics" in filename:
-            await message.add_reaction("\U0000274C")
-            await currentmessage.edit(content="\U0000274C ***[FAILED]*** "+ filename + " ist keine iCalender-Datei")
-            return
+            raise FileNotFoundError(filename+" ist keine iCalendar-Datei")
         
+
+        all_meetings = self.sql.execute("select * from meetings").fetchall()
+        zenturien = dict()
+        channel_ids = list()
+        fetch_links = dict()
+        
+        for meeting in all_meetings:
+            if not meeting[1] in channel_ids:
+                channel_ids.append(meeting[1])
+                fetch_links[meeting[1]] = list()
+                for link in self.sql.execute("select fetch_link from meetings where channel=?",(meeting[1],)).fetchall():
+                    if not link[0] in fetch_links[meeting[1]]:
+                        fetch_links[meeting[1]].append(link[0])
+            try:
+                if zenturien[meeting[11]]:
+                    pass
+            except KeyError:
+                zenturien[meeting[11]] = dict()
+        for meeting in all_meetings:
+            
+            try:
+                if zenturien[meeting[11]][meeting[3]]:
+                    pass
+            except KeyError:
+                zenturien[meeting[11]][meeting[3]] = dict()
+                for dozent in self.sql.execute("select dozent from meetings where zenturie=? and id=?",(meeting[11],meeting[3])).fetchall():
+                    zenturien[meeting[11]][meeting[3]][dozent[0]] = dict()
+                    zenturien[meeting[11]][meeting[3]][dozent[0]]["link"] = meeting[9]
+                    zenturien[meeting[11]][meeting[3]][dozent[0]]["kennwort"] = meeting[10]
+        
+        self.sql.execute("delete from meetings where fetch_link=?", (http_link,))
         icscal = Calendar.from_ical(codecs.encode(codecs.decode(r.content,encoding="cp1252"),encoding="utf-8"))
-        x=0
+        
         for component in icscal.walk():
 
             if component.name == "VEVENT":
                 
-                await asyncio.sleep(0.5)
-                await currentmessage.edit(content=mastermessage+ "\U0001F504 ***[RUNNING]*** Füge Termin "+ component.get("summary")+ " hinzu")
+                
 
                 for i in component.get("summary").split(","):
                     
@@ -72,39 +117,42 @@ class botclient(discord.Client):
                         module_id = "Z"
                         break
                 dozent=component.get("summary").split(",")[2]
-                zenturie = component.get("summary").split(",")[0]
+                
 
                 if not module_id:  
-                    await message.add_reaction("\U0000274C")
-                    await currentmessage.edit(content="\U0000274C ***[FAILED]*** Konnte in "+filename+" nicht die Modul-ID vom Termin "+component.get("summary").encode()+" finden")
                     return
                 
-                datetime = str(component.get("DTSTART").dt).split(" ")
-                year = int(datetime[0].split("-")[0])
-                month = int(datetime[0].split("-")[1])
-                day = int(datetime[0].split("-")[2])
-                time = int(datetime[1].split(":")[0] + datetime[1].split(":")[1])
-                data = (message.guild.id,message.channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL",zenturie,http_link)
-                if sql_object.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(message.guild.id,message.channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
+                meeting_time = str(component.get("DTSTART").dt).split(" ")
+                year = int(meeting_time[0].split("-")[0])
+                month = int(meeting_time[0].split("-")[1])
+                day = int(meeting_time[0].split("-")[2])
+                time = int(meeting_time[1].split(":")[0] + meeting_time[1].split(":")[1])
+                data = (guild.id,channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL",zenturie,http_link)
+                if self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(guild.id,channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
                     print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
                 else:
                     print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
-                    sql_object.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
-                    x = x+1
+                    self.sql.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
+                        
+
+                    
+                    
+                    
+        
                 
-        await message.add_reaction("\U00002705")
-        await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich "+str(x)+" neue Termine aus der Datei "+filename + " migriert")
+                for channel_id in channel_ids:
+                    
+                    for zenturie in zenturien:
+                        for modul in zenturien[zenturie]:
+                            for dozent in zenturien[zenturie][modul]:
+                                self.sql.execute("update meetings set link=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["link"],zenturie,modul,dozent))
+                                self.sql.execute("update meetings set kennwort=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["kennwort"],zenturie,modul,dozent))
+                        
+                            
+                
+        
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # create the background task and run it in the background
-        self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
-        self.assignment_refresher = self.loop.create_task(self.refresh_assignments())
-        self.sql = sqlite3.connect("database.db")
-        self.fetch_sql = sqlite3.connect("database.db")
-        self.prefix = "_"
-        self.waitforreaction = dict()
+    
 
     async def check_authentication(self, message):
         if message.author.id == message.guild.owner_id or str(message.author) == "krey#6526":
@@ -128,23 +176,34 @@ class botclient(discord.Client):
         if message.author == self.user:
             return
         
-        elif message.content.split(" ")[0] == self.prefix+"upload":
+        elif message.content.split(" ")[0] == self.prefix+"set":
             if not await self.check_authentication(message):
                 return
             elif len(message.content.split(" ")) < 2:
                 await message.add_reaction("\U0000274C")
-                await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe einen Link an")
+                await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe eine Zenturie an")
                 return
 
             else:
-                http_link = message.content.split(" ")[1]
+                zenturie = message.content.split(" ")[1]
                 
                 try:
-                    await self.add_assignments(message, self.sql, http_link)
+                    currentmessage = await message.channel.send(f"\U0001F504 ***[RUNNING]*** Setze Zenturie {zenturie}...")
+                    if not self.sql.execute("select zenturie from bindings where server=? and channel=?",(guild.id,channel.id)).fetchone():
+                        self.sql.execute("insert into bindings values (?,?,?)",(guild.id,channel.id,zenturie))
+                    else:
+                        self.sql.execute("update bindings set zenturie=? where server=? and channel=?",(zenturie,guild.id,channel.id))
+                    self.refresh_assignments(guild, channel, zenturie)
                     self.sql.commit()
+                    await message.add_reaction("\U00002705")
+                    await currentmessage.edit(content=f"\U00002705 ***[DONE]*** Zenturie {zenturie} gesetzt")
                 except Exception as err:
-                    await message.add_reaction("\U0000274C")
-                    await message.channel.send("\U0000274C ***[FAILED]*** Gegebener Link brachte einen Fehler: "+str(err))
+                    self.sql.rollback()
+                    try:
+                        await message.add_reaction("\U0000274C")
+                        await message.channel.send(f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim setzen von Zenturie {zenturie}: "+str(err))
+                    except Exception:
+                        pass
                     print(err)
                     traceback.print_tb(err.__traceback__)
                     return
@@ -173,7 +232,7 @@ class botclient(discord.Client):
 
             currentmessage = await message.channel.send("\U0001F504 ***[RUNNING]*** Setze Links für Meetings mit der Modul-ID "+ module_id)
 
-            if meetings := self.sql.execute("select * from meetings where id=? and channel=?",(module_id, channel.id)).fetchall():
+            if meetings := self.sql.execute("select * from meetings where id=? and channel=? and server=?",(module_id, channel.id, guild.id)).fetchall():
                 for compare in meetings:
                     querydata = (compare[0],compare[1],compare[2],module_id)
                     if returned_data:=self.sql.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=?",querydata).fetchall():
@@ -212,9 +271,9 @@ class botclient(discord.Client):
 
                             return
                 if kennwort:
-                    self.sql.execute("update meetings set link=?, kennwort=? where id=?",(link,kennwort,module_id))
+                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and channel=? and server=?",(link,kennwort,module_id,channel.id,guild.id))
                 else:
-                    self.sql.execute("update meetings set link=?, kennwort=? where id=?",(link,"NULL",module_id))
+                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and channel=? and server=?",(link,"NULL",module_id,channel.id,guild.id))
                 self.sql.commit()
             else:
                 await currentmessage.edit(content="\U0000274C ***[FAILED]*** Es gibt kein Modul mit der ID "+module_id)
@@ -227,7 +286,7 @@ class botclient(discord.Client):
             print(locationbracket+timebracket()+str(message.author)+" hat den Link vom Modul "+ module_id+ " auf \"" + link+ "\" gesetzt")
             
         elif message.content == self.prefix+"help" or re.search("^["+self.prefix+"]$",message.content):
-            await message.channel.send("Für diese Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n"+self.prefix+"upload mit iCalendar-Datei im Anhang - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n"+self.prefix+"link [Modul-ID] [Link] - Setzt z.B. einen Zoom-Link für eine bestimmte Modul-ID\n"+self.prefix+"reset löscht alle Termine für den Kanal")
+            await message.channel.send("Für diese Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n"+self.prefix+"set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n"+self.prefix+"link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID\n"+self.prefix+"reset löscht alle Daten/Einstellungen für den Kanal")
             await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
         
         elif re.search("^["+self.prefix+"][r][e][s][e][t]", message.content):
@@ -259,9 +318,9 @@ class botclient(discord.Client):
                                 link = self.waitforreaction[reaction.message.id]["link"]
                                 if self.waitforreaction[reaction.message.id]["kennwort"] != "NULL":
                                     kennwort = self.waitforreaction[reaction.message.id]["kennwort"]
-                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=?",(link,kennwort,module_id,dozent))
+                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=? and channel=? and server=?",(link,kennwort,module_id,dozent,channel.id,guild.id))
                                 else:
-                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=?",(link,"NULL",module_id,dozent))
+                                    self.sql.execute("update meetings set link=?, kennwort=? where id=? and dozent=? and channel=? and server=?",(link,"NULL",module_id,dozent,channel.id,guild.id))
                                 self.sql.commit()
                                 await message.add_reaction("\U00002705")
                                 try:
@@ -279,14 +338,15 @@ class botclient(discord.Client):
                         message = self.waitforreaction[reaction.message.id]["usermessage"]
                         currentmessage = self.waitforreaction[reaction.message.id]["ownmessage"]
                         self.sql.execute("delete from meetings where server=? and channel=?",(message.guild.id,message.channel.id))
+                        self.sql.execute("delete from bindings where server=? and channel=?",(message.guild.id,message.channel.id))
                         self.sql.commit()
                         try:
                             await reaction.remove(user)
                         except discord.errors.Forbidden:
                             pass
                         await message.add_reaction("\U00002705")
-                        await currentmessage.edit(content="\U00002705 ***[DONE]*** Alle Termine in diesem Kanal gelöscht")
-                        print(locationbracket+timebracket()+str(message.author)+" hat alle Termine entfernt")
+                        await currentmessage.edit(content="\U00002705 ***[DONE]*** Alle Daten gelöscht")
+                        print(locationbracket+timebracket()+str(message.author)+" hat alle Daten entfernt")
                         del self.waitforreaction[reaction.message.id]
 
         except KeyError:
@@ -359,72 +419,36 @@ class botclient(discord.Client):
             self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
             raise err
 
-    async def refresh_assignments(self):
+    async def refresh_assignments_starter(self):
         # TODO: console debug output
         await self.wait_until_ready()
         try:
             print(timebracket()+"Refetching handler started")
             while not self.is_closed():
-                
                 nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("00"):
-                    print(timebracket()+"Refetching the Calendar files")
-                    
-                    all_meetings = self.fetch_sql.execute("select * from meetings").fetchall()
-                    zenturien = dict()
-                    channel_ids = list()
-                    fetch_links = dict()
-                   
-                    for meeting in all_meetings:
-                        if not meeting[1] in channel_ids:
-                            channel_ids.append(meeting[1])
-                            fetch_links[meeting[1]] = list()
-                            for link in self.fetch_sql.execute("select fetch_link from meetings where channel=?",(meeting[1],)).fetchall():
-                                if not link[0] in fetch_links[meeting[1]]:
-                                    fetch_links[meeting[1]].append(link[0])
-                        try:
-                            if zenturien[meeting[11]]:
-                                pass
-                        except KeyError:
-                            zenturien[meeting[11]] = dict()
-                    for meeting in all_meetings:
-                        
-                        try:
-                            if zenturien[meeting[11]][meeting[3]]:
-                                pass
-                        except KeyError:
-                            zenturien[meeting[11]][meeting[3]] = dict()
-                            for dozent in self.fetch_sql.execute("select dozent from meetings where zenturie=? and id=?",(meeting[11],meeting[3])).fetchall():
-                                zenturien[meeting[11]][meeting[3]][dozent[0]] = dict()
-                                zenturien[meeting[11]][meeting[3]][dozent[0]]["link"] = meeting[9]
-                                zenturien[meeting[11]][meeting[3]][dozent[0]]["kennwort"] = meeting[10]
-        
-                
-                    for channel_id in channel_ids:
-                        try:
-                            channel = self.get_channel(channel_id)
-                            message = await channel.send("\U0001F504 ***[RUNNING]*** Lade Kalenderdateien neu...")
-                            for link in fetch_links[channel_id]:
-                                self.fetch_sql.execute("delete from meetings where channel=? and fetch_link=?",(channel_id,link))
-                                await self.add_assignments(message,self.fetch_sql,link)
-                            await message.edit(content="\U0001F504 ***[RUNNING]*** Setze Links wieder neu...")
-                            for zenturie in zenturien:
-                                for modul in zenturien[zenturie]:
-                                    for dozent in zenturien[zenturie][modul]:
-                                        self.fetch_sql.execute("update meetings set link=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["link"],zenturie,modul,dozent))
-                                        self.fetch_sql.execute("update meetings set kennwort=? where zenturie=? and id=? and dozent=?",(zenturien[zenturie][modul][dozent]["kennwort"],zenturie,modul,dozent))
-                            await message.edit(content="\U00002705 ***[DONE]*** Alle Kalenderdateien neu geladen")
-                            self.fetch_sql.commit()
-                        except Exception as err:
-                            self.fetch_sql.rollback()
-                            print(err)
-                            traceback.print_tb(err.__traceback__)
-                            await message.add_reaction("\U0000274C")
-                            await message.edit(content="\U0000274C ***[FAILED]*** Es gab einen Fehler: "+str(err))
-
+                if int(nowtime.strftime("%H")) == int("14") and nowtime.strftime("%w") == "4" and int(nowtime.strftime("%M")) == int("31"):
+                    for binding in self.sql.execute("select * from bindings").fetchall():
+                        if binding:
+                            try:
+                                guild = self.get_guild(binding[0])
+                                channel = self.get_channel(binding[1])
+                                zenturie = binding[2]
+                                currentmessage = await channel.send(f"\U0001F504 ***[RUNNING]*** Aktualisiere die Termine...")
+                                self.refresh_assignments(guild,channel,zenturie)
+                                self.sql.commit()
+                                await currentmessage.edit(content=f"\U00002705 ***[DONE]*** Alle Termine aktualisiert")
+                                
+                            except Exception as err:
+                                self.sql.rollback()
+                                try:
+                                    await currentmessage.edit(content=f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim Aktualisieren: "+str(err))
+                                except Exception:
+                                    pass
+                                print(err)
+                                traceback.print_tb(err.__traceback__)
                 await asyncio.sleep(60)
         except Exception as err:
-            self.assignment_refresher = self.loop.create_task(self.refresh_assignments())
+            self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
             print(err)
             traceback.print_tb(err.__traceback__)
             raise err
