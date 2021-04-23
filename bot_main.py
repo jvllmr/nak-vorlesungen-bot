@@ -33,7 +33,7 @@ class botclient(discord.Client):
         # create the background task and run it in the background
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
         self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
-        self.prefix = "_"
+        self.prefix = "#"
         self.waitforreaction = dict()
 
     def refresh_assignments(self, sql_object, guild, channel, zenturie):
@@ -126,6 +126,10 @@ class botclient(discord.Client):
         print(timebracket()+"Logged on as "+ str(self.user))
         await client.change_presence(status=discord.Status.online, activity=discord.Game(""))
     
+    async def on_guild_join(self, guild):
+        if guild.system_channel:
+            guild.system_channel.send(f"\U0001F44B Heyo, unter folgendem Link siehst du, wie du mich verwendest: \n https://github.com/kreyoo/nak-vorlesungen-bot/wiki \n Alternativ erhältst du mit dem {self.prefix}help Befehl eine Übersicht.")
+
     async def on_message(self, message):
         guild = message.guild
         channel = message.channel
@@ -249,8 +253,8 @@ class botclient(discord.Client):
             logging.info(locationbracket+timebracket()+str(message.author)+" hat den Link vom Modul "+ module_id+ " auf \"" + link+ "\" gesetzt")
             
         elif message.content == self.prefix+"help" or re.search("^["+self.prefix+"]$",message.content):
-            await message.channel.send("Für diese Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n"+self.prefix+"set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n"+self.prefix+"link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID\n"+self.prefix+"reset löscht alle Daten/Einstellungen für den Kanal")
-            await message.channel.send("GitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
+            await message.channel.send("Für alle Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n\n"+self.prefix+"set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n\n"+self.prefix+"link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID\n\n"+self.prefix+"reset löscht alle Daten/Einstellungen für den Kanal")
+            await message.channel.send("\nGitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
             sqlcon.close()
         
         elif re.search("^["+self.prefix+"][r][e][s][e][t]", message.content):
@@ -260,6 +264,8 @@ class botclient(discord.Client):
                 self.waitforreaction[currentmessage.id]["usermessage"] = message
                 self.waitforreaction[currentmessage.id]["ownmessage"] = currentmessage
             sqlcon.close()
+
+
 
     async def on_reaction_add(self,reaction, user):
         guild = reaction.message.guild
