@@ -4,3 +4,4 @@ database.db
 .vscode
 *.code-workspace
 .dist
+*.log

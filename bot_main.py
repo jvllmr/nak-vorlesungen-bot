@@ -1,6 +1,7 @@
-import discord, sqlite3, asyncio, os, re, datetime, requests, codecs, traceback
+import discord, sqlite3, asyncio, os, re, datetime, requests, codecs, traceback, logging
 from icalendar import Calendar
 
+logging.basicConfig(filename="logfile.log", level=logging.INFO)
 
 symbols = (
             "\U00000030\U0000FE0F\U000020E3  ",
@@ -20,11 +21,6 @@ def timebracket():
 
 def removeDuplicates(lst):
     return list(set([i for i in lst]))
-
-
-
-
-
 
 
 
@@ -103,9 +99,9 @@ class botclient(discord.Client):
                 time = int(meeting_time[1].split(":")[0] + meeting_time[1].split(":")[1])
                 data = (guild.id,channel.id,assignment_name,module_id,dozent,year,month,day,time,"NULL","NULL",zenturie,http_link)
                 if sql_object.execute("select * from meetings where server=? and channel=? and assignment_name=? and dozent=? and year=? and month=? and day=? and time=?",(guild.id,channel.id,assignment_name,dozent,year,month,day, time)).fetchone():
-                    print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
+                    logging.info(locationbracket+timebracket()+"Meeting "+component.get("summary")+" existiert bereits")
                 else:
-                    print(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
+                    logging.info(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
                     sql_object.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
 
                 if links_backup:
@@ -126,6 +122,7 @@ class botclient(discord.Client):
         return False
 
     async def on_ready(self):
+        logging.info(timebracket()+"Logged on as "+ str(self.user))
         print(timebracket()+"Logged on as "+ str(self.user))
         await client.change_presence(status=discord.Status.online, activity=discord.Game(""))
     
@@ -169,7 +166,7 @@ class botclient(discord.Client):
                         await message.channel.send(f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim setzen von Zenturie {zenturie}: "+str(err))
                     except Exception:
                         pass
-                    print(err)
+                    logging.error(err)
                     traceback.print_tb(err.__traceback__)
                     return
 
@@ -201,7 +198,7 @@ class botclient(discord.Client):
                 for compare in meetings:
                     querydata = (compare[0],compare[1],compare[2],module_id)
                     if returned_data:=sqlcon.execute("select * from meetings where server=? and channel=? and assignment_name=? and id=?",querydata).fetchall():
-                        print(returned_data)
+                        logging.info(returned_data)
                         newreturneddata = list()
                         
                         for checking in returned_data:
@@ -212,7 +209,7 @@ class botclient(discord.Client):
                             if not skip:
                                 newreturneddata.append(checking)
                         returned_data = newreturneddata
-                        print(returned_data)
+                        logging.info(returned_data)
                         del newreturneddata
                         if len(returned_data) > 1:
                             dozenten= str()
@@ -249,7 +246,7 @@ class botclient(discord.Client):
 
             await message.add_reaction("\U00002705")
             await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul mit der ID " +module_id+ " gesetzt")
-            print(locationbracket+timebracket()+str(message.author)+" hat den Link vom Modul "+ module_id+ " auf \"" + link+ "\" gesetzt")
+            logging.info(locationbracket+timebracket()+str(message.author)+" hat den Link vom Modul "+ module_id+ " auf \"" + link+ "\" gesetzt")
             
         elif message.content == self.prefix+"help" or re.search("^["+self.prefix+"]$",message.content):
             await message.channel.send("Für diese Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n"+self.prefix+"set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n"+self.prefix+"link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID\n"+self.prefix+"reset löscht alle Daten/Einstellungen für den Kanal")
@@ -298,7 +295,7 @@ class botclient(discord.Client):
                                 except discord.errors.Forbidden:
                                     pass
                                 await currentmessage.edit(content="\U00002705 ***[DONE]*** Erfolgreich den Link für das Modul "+module_id+" mit dem Dozenten "+ dozent +  " gesetzt")
-                                print(locationbracket+timebracket()+str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf \"" + link+ "\" gesetzt")
+                                logging.info(locationbracket+timebracket()+str(user)+" hat den Link vom Modul "+ module_id+ " mit dem Dozenten "+dozent +" auf \"" + link+ "\" gesetzt")
                                 del self.waitforreaction[reaction.message.id]
                                 break
                             x=x+1
@@ -317,7 +314,7 @@ class botclient(discord.Client):
                             pass
                         await message.add_reaction("\U00002705")
                         await currentmessage.edit(content="\U00002705 ***[DONE]*** Alle Daten gelöscht")
-                        print(locationbracket+timebracket()+str(message.author)+" hat alle Daten entfernt")
+                        logging.info(locationbracket+timebracket()+str(message.author)+" hat alle Daten entfernt")
                         del self.waitforreaction[reaction.message.id]
                     sqlcon.close()
         except KeyError:
@@ -328,7 +325,7 @@ class botclient(discord.Client):
         sqlcon = sqlite3.connect("database.db")
         try:
             while not self.is_closed():
-                print(timebracket()+"Starte Meeting-Check...")
+                logging.info(timebracket()+"Starte Meeting-Check...")
                 currenttime = str(datetime.datetime.now()+ datetime.timedelta(minutes = 10))
                 time = int(currenttime.split(" ")[1].split(":")[0] + currenttime.split(" ")[1].split(":")[1])
                 year = int(currenttime.split(" ")[0].split("-")[0])
@@ -336,12 +333,12 @@ class botclient(discord.Client):
                 day = int(currenttime.split(" ")[0].split("-")[2])
                 
                 if meetings:= sqlcon.execute("select * from meetings where year=? and month=? and day=? and time=?",(year,month,day,time)).fetchall():
-                    print(timebracket()+"Meetings mit passender Zeit gefunden!")
+                    logging.info(timebracket()+"Meetings mit passender Zeit gefunden!")
                     for meeting in meetings:
                         guild = self.get_guild(meeting[0])
                         channel = self.get_channel(meeting[1])
                         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/" +str(channel.id) +"]"
-                        print(locationbracket+timebracket()+"Sende Info zur Vorlesung "+meeting[2])
+                        logging.info(locationbracket+timebracket()+"Sende Info zur Vorlesung "+meeting[2])
 
                         if "?" in meeting[9]:
                             meeting_id = meeting[9].split("?")[0].split("/j/")[1]
@@ -385,7 +382,7 @@ class botclient(discord.Client):
                             else:
                                 await channel.send("\U00002757 Die Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich.\n Leider ist noch kein Link zum Meeting hinterlegt.")
                                 
-                print(timebracket()+"Meeting-Check fertig!")
+                logging.info(timebracket()+"Meeting-Check fertig!")
                 await asyncio.sleep(60)
         except Exception as err:
             sqlcon.close()
@@ -397,7 +394,7 @@ class botclient(discord.Client):
         await self.wait_until_ready()
         sqlcon = sqlite3.connect("database.db")
         try:
-            print(timebracket()+"Refetching handler started")
+            logging.info(timebracket()+"Refetching handler started")
             while not self.is_closed():
                 nowtime = datetime.datetime.now()
                 if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("00"):
@@ -418,13 +415,13 @@ class botclient(discord.Client):
                                     await currentmessage.edit(content=f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim Aktualisieren: "+str(err))
                                 except Exception:
                                     pass
-                                print(err)
+                                logging.error(err)
                                 traceback.print_tb(err.__traceback__)
                 await asyncio.sleep(60)
         except Exception as err:
             sqlcon.close()
             self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
-            print(err)
+            logging.error(err)
             traceback.print_tb(err.__traceback__)
             raise err
 
@@ -435,4 +432,4 @@ try:
     client= botclient()
     client.run(token)
 except FileNotFoundError:
-    print("token.key file missing with token missing")
+    logging.info("token.key file missing with token missing")
