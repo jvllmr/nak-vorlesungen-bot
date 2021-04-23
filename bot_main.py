@@ -119,7 +119,7 @@ class botclient(discord.Client):
             return True
 
         for role in message.author.roles:
-            if role.name == "NAK_REMINDER":
+            if role.name == "NAK_REMINDER" or role.permissions.administrator:
                 return True
         await message.add_reaction("\U0000274C")
         await message.channel.send("\U0000274C Du hast nicht die Berechtigung, um diesen Befehl auszführen.\n Du musst entweder Servereigentümer sein oder eine Rolle Namens NAK_REMINDER innehaben.")
@@ -435,4 +435,4 @@ try:
     client= botclient()
     client.run(token)
 except FileNotFoundError:
-    print("token.key file missing. if this is a test on github. this is ok")
+    print("token.key file missing with token missing")
