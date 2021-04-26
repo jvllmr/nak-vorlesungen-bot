@@ -44,7 +44,7 @@ class botclient(discord.Client):
         for semester in range(7):
             r = requests.get(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics")
             if r.status_code == 404:
-                sql_object.execute("delete from meetings where fetch_link=?",(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics",))
+                sql_object.execute("delete from meetings where fetch_link=? and server=? and channel=?",(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics",guild.id,channel.id))
             else:
                 http_link = f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics"
                 break
@@ -67,7 +67,7 @@ class botclient(discord.Client):
         
         
         
-        sql_object.execute("delete from meetings where fetch_link=?", (http_link,))
+        sql_object.execute("delete from meetings where fetch_link=? and channel=? and server=?", (http_link,channel.id, guild.id))
         icscal = Calendar.from_ical(codecs.encode(codecs.decode(r.content,encoding="cp1252"),encoding="utf-8"))
         
         for component in icscal.walk():
