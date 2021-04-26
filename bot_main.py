@@ -32,7 +32,6 @@ class botclient(discord.Client):
 
         # create the background task and run it in the background
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
-        self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
         self.prefix = "#"
         self.waitforreaction = dict()
 
@@ -331,6 +330,35 @@ class botclient(discord.Client):
         sqlcon = sqlite3.connect("database.db")
         try:
             while not self.is_closed():
+
+                # meeting refresher
+                nowtime = datetime.datetime.now()
+                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "2" and int(nowtime.strftime("%M")) == int("00"):
+                    for binding in sqlcon.execute("select * from bindings").fetchall():
+                        if binding:
+                            try:
+                                guild = self.get_guild(binding[0])
+                                channel = self.get_channel(binding[1])
+                                zenturie = binding[2]
+                                currentmessage = await channel.send(f"\U0001F504 ***[RUNNING]*** Aktualisiere die Termine...")
+                                self.refresh_assignments(sqlcon,guild,channel,zenturie)
+                                sqlcon.commit()
+                                await currentmessage.edit(content=f"\U00002705 ***[DONE]*** Alle Termine aktualisiert")
+                                
+                            except Exception as err:
+                                sqlcon.rollback()
+                                try:
+                                    await currentmessage.edit(content=f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim Aktualisieren: "+str(err))
+                                except Exception:
+                                    pass
+                                logging.error(err)
+                                traceback.print_tb(err.__traceback__)
+
+
+
+
+
+                # meeting checker
                 logging.info(timebracket()+"Starte Meeting-Check...")
                 currenttime = str(datetime.datetime.now()+ datetime.timedelta(minutes = 10))
                 time = int(currenttime.split(" ")[1].split(":")[0] + currenttime.split(" ")[1].split(":")[1])
@@ -393,43 +421,11 @@ class botclient(discord.Client):
         except Exception as err:
             sqlcon.close()
             self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
-            raise err
-
-    async def refresh_assignments_starter(self):
-        # TODO: console debug output
-        await self.wait_until_ready()
-        sqlcon = sqlite3.connect("database.db")
-        try:
-            logging.info(timebracket()+"Refetching handler started")
-            while not self.is_closed():
-                nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("00"):
-                    for binding in sqlcon.execute("select * from bindings").fetchall():
-                        if binding:
-                            try:
-                                guild = self.get_guild(binding[0])
-                                channel = self.get_channel(binding[1])
-                                zenturie = binding[2]
-                                currentmessage = await channel.send(f"\U0001F504 ***[RUNNING]*** Aktualisiere die Termine...")
-                                self.refresh_assignments(sqlcon,guild,channel,zenturie)
-                                sqlcon.commit()
-                                await currentmessage.edit(content=f"\U00002705 ***[DONE]*** Alle Termine aktualisiert")
-                                
-                            except Exception as err:
-                                sqlcon.rollback()
-                                try:
-                                    await currentmessage.edit(content=f"\U0000274C ***[FAILED]*** Es gab einen Fehler beim Aktualisieren: "+str(err))
-                                except Exception:
-                                    pass
-                                logging.error(err)
-                                traceback.print_tb(err.__traceback__)
-                await asyncio.sleep(60)
-        except Exception as err:
-            sqlcon.close()
-            self.assignment_refresher = self.loop.create_task(self.refresh_assignments_starter())
             logging.error(err)
             traceback.print_tb(err.__traceback__)
             raise err
+
+    
 
 try:
     keyfile = open("token.key","r")
