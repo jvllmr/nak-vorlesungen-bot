@@ -23,7 +23,6 @@ def removeDuplicates(lst):
     return list(set([i for i in lst]))
 
 
-
 class botclient(discord.Client):
 
 
@@ -36,8 +35,11 @@ class botclient(discord.Client):
         self.waitforreaction = dict()
 
     def refresh_assignments(self, sql_object, guild, channel, zenturie):
-       
+        
         locationbracket = "["+guild.name + "/"+str(guild.id)+"][" + channel.name +"/"+ str(channel.id) +"]"
+
+        links_backup = sql_object.execute("select link, kennwort, server, channel, id, dozent from meetings where zenturie=?",(zenturie,)).fetchall()
+
         http_link = None
         for semester in range(7):
             r = requests.get(f"https://cis.nordakademie.de/fileadmin/Infos/Stundenplaene/{zenturie}_{semester}.ics")
@@ -62,7 +64,7 @@ class botclient(discord.Client):
             raise FileNotFoundError(filename+" ist keine iCalendar-Datei")
         
 
-        links_backup = sql_object.execute("select link, kennwort, server, channel, id, dozent from meetings where fetch_link=? and zenturie=?",(http_link,zenturie)).fetchall()
+        
         
         
         sql_object.execute("delete from meetings where fetch_link=?", (http_link,))
@@ -103,10 +105,12 @@ class botclient(discord.Client):
                     logging.info(locationbracket+timebracket()+"Meeting "+component.get("summary")+" erstellt")
                     sql_object.execute("insert into meetings values (?,?,?,?,?,?,?,?,?,?,?,?,?)", data)
 
-                if links_backup:
-                    links_backup = removeDuplicates(links_backup)
-                    for modul in links_backup:
-                        sql_object.execute("update meetings set link=?, kennwort=? where server=? and channel=? and id=? and dozent=?", modul)
+        if links_backup:
+            links_backup = removeDuplicates(links_backup)
+            for modul in links_backup:
+                if not "NULL" in modul:
+                    print(modul)
+                    sql_object.execute("update meetings set link=?, kennwort=? where server=? and channel=? and id=? and dozent=?", modul)
                     
 
     async def check_authentication(self, message):
@@ -333,7 +337,7 @@ class botclient(discord.Client):
 
                 # meeting refresher
                 nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "2" and int(nowtime.strftime("%M")) == int("00"):
+                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("00"):
                     for binding in sqlcon.execute("select * from bindings").fetchall():
                         if binding:
                             try:
