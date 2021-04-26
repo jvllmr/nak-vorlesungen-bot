@@ -1,6 +1,6 @@
 import discord, sqlite3, asyncio, os, re, datetime, requests, codecs, traceback, logging
 from icalendar import Calendar
-
+from shutil import copy2
 logging.basicConfig(filename="logfile.log", level=logging.INFO)
 
 symbols = (
@@ -31,7 +31,7 @@ class botclient(discord.Client):
 
         # create the background task and run it in the background
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
-        self.prefix = "#"
+        self.prefix = "_"
         self.waitforreaction = dict()
 
     def refresh_assignments(self, sql_object, guild, channel, zenturie):
@@ -337,7 +337,13 @@ class botclient(discord.Client):
 
                 # meeting refresher
                 nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "0" and int(nowtime.strftime("%M")) == int("00"):
+                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "00" and int(nowtime.strftime("%M")) == int("00"):
+                    # database backup
+                    copy2("database.db","database_backups/database_"+datetime.datetime.now().strftime("%Y%m%d")+".db")
+                    if len(os.listdir("database_backups")) > 5:
+                        os.remove(sorted(os.listdir("database_backups"))[0])
+
+
                     for binding in sqlcon.execute("select * from bindings").fetchall():
                         if binding:
                             try:
@@ -432,6 +438,10 @@ class botclient(discord.Client):
     
 
 try:
+    try:
+        os.mkdir("database_backups")
+    except FileExistsError:
+        pass
     keyfile = open("token.key","r")
     token = keyfile.read()
     keyfile.close()

@@ -5,3 +5,4 @@ database.db
 *.code-workspace
 .dist
 *.log
+database_backups
