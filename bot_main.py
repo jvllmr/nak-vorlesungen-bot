@@ -31,7 +31,7 @@ class botclient(discord.Client):
 
         # create the background task and run it in the background
         self.assignment_check = self.loop.create_task(self.check_for_next_assignment())
-        self.prefix = "_"
+        self.prefix = "#"
         self.waitforreaction = dict()
 
     def refresh_assignments(self, sql_object, guild, channel, zenturie):
@@ -131,7 +131,7 @@ class botclient(discord.Client):
     
     async def on_guild_join(self, guild):
         if guild.system_channel:
-            guild.system_channel.send(f"\U0001F44B Heyo, unter folgendem Link siehst du, wie du mich verwendest: \n https://github.com/kreyoo/nak-vorlesungen-bot/wiki \n Alternativ erhältst du mit dem {self.prefix}help Befehl eine Übersicht.")
+            guild.system_channel.send(f"\U0001F44B Heyo, unter folgendem Link siehst du, wie du mich verwendest: \n https://github.com/kreyoo/nak-vorlesungen-bot/wiki \n Alternativ erhältst du mit dem Befehl `{self.prefix}help` eine Übersicht.")
 
     async def on_message(self, message):
         guild = message.guild
