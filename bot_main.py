@@ -337,7 +337,7 @@ class botclient(discord.Client):
 
                 # meeting refresher
                 nowtime = datetime.datetime.now()
-                if int(nowtime.strftime("%H")) == int("00") and nowtime.strftime("%w") == "00" and int(nowtime.strftime("%M")) == int("00"):
+                if int(nowtime.strftime("%H")) == int("00") and int(nowtime.strftime("%w")) == int("00") and int(nowtime.strftime("%M")) == int("00"):
                     # database backup
                     copy2("database.db","database_backups/database_"+datetime.datetime.now().strftime("%Y%m%d")+".db")
                     if len(os.listdir("database_backups")) > 5:
