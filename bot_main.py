@@ -177,6 +177,34 @@ class botclient(discord.Client):
                     traceback.print_tb(err.__traceback__)
                     return
 
+        elif re.search(f"^[{self.prefix}][m][o][o][d][l][e]", message.content):
+            try:
+                modul = message.split(" ")[1]
+            except IndexError:
+                await message.add_reaction("\U0000274C")
+                await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe eine Modul-ID an")
+                return
+
+            try:
+                moodle_link = message.split(" ")[2]
+            except IndexError:
+                await message.add_reaction("\U0000274C")
+                await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe einen Link zum Moodle-Kurs an")
+                return
+
+            if sqlcon.execute("select moodle_link from moodle where channel=? and id=?",(message.channel.id,modul)).fetchone():
+                sqlcon.execute("insert into moodle values (?,?,?)",(message.channel.id,modul,moodle_link))
+            else:
+                sqlcon.execute("update moodle set moodle_link=? where channel=? and id=?",(moodle_link,message.channel.id,modul))
+
+            await message.add_reaction("\U00002705")
+            await message.channel.send("\U00002705 ***[DONE]*** Erfolgreich den Link zum Moodle-Kurs für das Modul mit der ID " +modul+ " gesetzt")
+
+            return
+
+            
+
+
         elif re.search("^["+self.prefix+"][l][i][n][k]", message.content):
             if not await self.check_authentication(message):
                 return
@@ -194,6 +222,7 @@ class botclient(discord.Client):
                  await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe einen Link an")
                  
                  return
+                 
             try:
                 kennwort =  message.content.split(" ")[3]
             except IndexError:
@@ -407,6 +436,8 @@ class botclient(discord.Client):
                             button.add_field(name="Hier geht es zur Vorlesung:",value=link,inline=False)
                             button.add_field(name="Meeting ID:",value=meeting_id,inline=False)
                             button.add_field(name="Kennwort:",value=meeting[10],inline=False)
+                            if moodle := sqlcon.execute("select moodle_link from moodle where channel=? and id=?",(channel.id,meeting[3])).fetchone():
+                                button.add_field(name=":moodle:",value=f"[Moodle-Kurs]({moodle[0]})",inline=False)
                             if rolle:
                                 await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
                             else:
@@ -437,7 +468,6 @@ class botclient(discord.Client):
             raise err
 
     
-
 try:
     try:
         os.mkdir("database_backups")

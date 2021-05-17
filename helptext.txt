@@ -4,4 +4,6 @@ $prefix$set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn
 
 $prefix$link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID
 
-$prefix$reset löscht alle Daten/Einstellungen für den Kanal")
+$prefix$reset - Löscht alle Daten/Einstellungen für den Kanal")
+
+$prefix$moodle [Modul-ID] [Link] - Setzt den Link zum Moodle-Kurs für eine bestimmte Modul-ID
