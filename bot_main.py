@@ -178,15 +178,17 @@ class botclient(discord.Client):
                     return
 
         elif message.content.split(" ")[0] == self.prefix+"moodle":
+            if not await self.check_authentication(message):
+                return
             try:
-                modul = message.split(" ")[1]
+                modul = message.content.split(" ")[1]
             except IndexError:
                 await message.add_reaction("\U0000274C")
                 await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe eine Modul-ID an")
                 return
 
             try:
-                moodle_link = message.split(" ")[2]
+                moodle_link = message.content.split(" ")[2]
             except IndexError:
                 await message.add_reaction("\U0000274C")
                 await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe einen Link zum Moodle-Kurs an")
