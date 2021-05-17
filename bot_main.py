@@ -177,7 +177,7 @@ class botclient(discord.Client):
                     traceback.print_tb(err.__traceback__)
                     return
 
-        elif re.search(f"^[{self.prefix}][m][o][o][d][l][e]", message.content):
+        elif re.search("^["+self.prefix+"][m][o][o][d][l][e]", message.content):
             try:
                 modul = message.split(" ")[1]
             except IndexError:
