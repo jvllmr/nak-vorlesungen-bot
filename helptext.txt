@@ -1,0 +1,7 @@
+Für alle Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:
+
+$prefix$set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben
+
+$prefix$link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID
+
+$prefix$reset löscht alle Daten/Einstellungen für den Kanal")

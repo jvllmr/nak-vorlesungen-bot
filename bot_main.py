@@ -256,7 +256,8 @@ class botclient(discord.Client):
             logging.info(locationbracket+timebracket()+str(message.author)+" hat den Link vom Modul "+ module_id+ " auf \"" + link+ "\" gesetzt")
             
         elif message.content == self.prefix+"help" or re.search("^["+self.prefix+"]$",message.content):
-            await message.channel.send("Für alle Befehle wird eine Rolle Namens \"NAK_REMINDER\" benötigt:\n\n"+self.prefix+"set [Zenturie] - Lädt Kalender in die Datenbank des Bots und lässt ihn Benachrichtigungen dazu in diesem Chat schreiben\n\n"+self.prefix+"link [Modul-ID] [Link] [Kennwort] - Setzt z.B. einen Zoom-Link mit Passwort für eine bestimmte Modul-ID\n\n"+self.prefix+"reset löscht alle Daten/Einstellungen für den Kanal")
+            with open("helptext.txt","r") as f:
+                await message.channel.send(f.read().replace("$prefix$",self.prefix))
             await message.channel.send("\nGitHub Repo:\nhttps://github.com/kreyoo/nak-vorlesungen-bot")
             sqlcon.close()
         
