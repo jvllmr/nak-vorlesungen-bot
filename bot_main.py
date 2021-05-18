@@ -440,10 +440,13 @@ class botclient(discord.Client):
                             button.add_field(name="Meeting ID:",value=meeting_id,inline=False)
                             button.add_field(name="Kennwort:",value=meeting[10],inline=False)
                             if moodle := sqlcon.execute("select moodle_link from moodle where channel=? and id=?",(channel.id,meeting[3])).fetchone():
+                                moodle_emoji = None
                                 for emoji in guild.emojis:
-                                    if emoji.name=="moodle":
-                                        moodle_emoji= emoji
+                                    if emoji.name == "moodle":
+                                        moodle_emoji = emoji
                                         break
+                                if not moodle_emoji:
+                                    moodle_emoji == "\U0001F393"
                                 button.add_field(name=str(moodle_emoji),value=f"[Moodle-Kurs]({moodle[0]})",inline=False)
                             if rolle:
                                 await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
