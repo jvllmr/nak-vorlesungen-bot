@@ -194,10 +194,13 @@ class botclient(discord.Client):
                 await message.channel.send("\U0000274C ***[FAILED]*** Bitte gebe einen Link zum Moodle-Kurs an")
                 return
 
-            if sqlcon.execute("select moodle_link from moodle where channel=? and id=?",(message.channel.id,modul)).fetchone():
+            if not sqlcon.execute("select moodle_link from moodle where channel=? and id=?",(message.channel.id,modul)).fetchone():
                 sqlcon.execute("insert into moodle values (?,?,?)",(message.channel.id,modul,moodle_link))
+                logging.info("Inserting moodle data:",(message.channel.id,modul,moodle_link))
             else:
                 sqlcon.execute("update moodle set moodle_link=? where channel=? and id=?",(moodle_link,message.channel.id,modul))
+                logging.info("Updating moodle data:",(moodle_link,message.channel.id,modul))
+
             sqlcon.commit()
             sqlcon.close()
             await message.add_reaction("\U00002705")
