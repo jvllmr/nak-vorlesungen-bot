@@ -198,7 +198,8 @@ class botclient(discord.Client):
                 sqlcon.execute("insert into moodle values (?,?,?)",(message.channel.id,modul,moodle_link))
             else:
                 sqlcon.execute("update moodle set moodle_link=? where channel=? and id=?",(moodle_link,message.channel.id,modul))
-
+            sqlcon.commit()
+            sqlcon.close()
             await message.add_reaction("\U00002705")
             await message.channel.send("\U00002705 ***[DONE]*** Erfolgreich den Link zum Moodle-Kurs für das Modul mit der ID " +modul+ " gesetzt")
 
