@@ -450,7 +450,7 @@ class botclient(discord.Client):
                                         break
                                 if not moodle_emoji:
                                     moodle_emoji == "\U0001F393"
-                                button.add_field(name=str(moodle_emoji),value=f"[Moodle-Kurs]({moodle[0]})",inline=False)
+                                button.add_field(name=str(moodle_emoji),value=f"[Moodle-Kurs]({moodle[0]})",inline=True)
                             if rolle:
                                 await channel.send(content="\U00002757 "+rolle+"\nDie Vorlesung "+meeting[2]+ " mit "+ meeting[4]+" beginnt gleich",embed=button)
                             else:
