@@ -1,2 +1,2 @@
 icalendar
-discord==1.7.2
+discord.py==1.7.2
