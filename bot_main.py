@@ -148,7 +148,7 @@ class botclient(discord.Client):
             return
         
         elif "NAK" in message.content:
-            message.add_reaction(getEmoji(guild, "nak"))
+            await message.add_reaction(getEmoji(guild, "nak"))
 
         elif message.content.split(" ")[0] == self.prefix+"set":
             if not await self.check_authentication(message):
